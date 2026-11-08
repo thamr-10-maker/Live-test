@@ -72,6 +72,21 @@
   #leaders { margin-top: 8px; font-size: 13px; line-height: 1.55; }
   #leaders b { color: var(--gold); }
 
+  /* Chat, joins and follows feed (in the empty space above the tower) */
+  #feed { margin-top: 10px; display: flex; flex-direction: column; gap: 5px; align-items: flex-start; }
+  .feed-line {
+    max-width: 92%; background: rgba(26,23,38,.78); border: 1px solid #2f2847;
+    padding: 6px 11px; border-radius: 14px; font-size: 14px; line-height: 1.35;
+    animation: feedIn .3s ease-out; transition: opacity .6s; overflow-wrap: anywhere;
+  }
+  .feed-line .n { font-weight: 700; color: #8fd3ff; margin: 0 4px; }
+  .feed-line.join { color: var(--muted); font-size: 13px; padding: 4px 10px; }
+  .feed-line.join .n { color: var(--muted); }
+  .feed-line.follow { border-color: var(--green); }
+  .feed-line.follow .n { color: var(--green); }
+  .feed-line.gone { opacity: 0; }
+  @keyframes feedIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
   #big-alert {
     position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%) scale(.6);
     background: var(--gold); color: #1a1200; padding: 12px 18px; border-radius: 18px;
@@ -87,10 +102,10 @@
   #test-bar {
     position: absolute; bottom: 0; left: 0; right: 0; padding: 6px 8px 14px;
     background: rgba(13,11,20,.95); border-top: 1px solid #2a2440;
-    display: none; grid-template-columns: repeat(9, 1fr); gap: 4px;
+    display: none; grid-template-columns: repeat(11, 1fr); gap: 3px;
   }
   body.testing #test-bar { display: grid; }
-  #test-bar button { font-size: 18px; padding: 10px 0; background: var(--card); color: var(--text); border: 1px solid #332d4a; border-radius: 10px; }
+  #test-bar button { font-size: 16px; padding: 10px 0; background: var(--card); color: var(--text); border: 1px solid #332d4a; border-radius: 10px; }
 
   #menu { position: absolute; inset: 0; background: rgba(13,11,20,.9); display: none; align-items: center; justify-content: center; }
   #menu > div { width: 80%; max-width: 320px; }
@@ -127,6 +142,7 @@
     <div class="bar-row"><span class="ico">💨</span><div class="bar"><div id="wind-fill"></div></div><span class="num" id="wind-text">0/50</span></div>
     <div class="legend" id="game-legend"></div>
     <div id="leaders"></div>
+    <div id="feed"></div>
   </div>
 
   <div id="big-alert"></div>
@@ -548,6 +564,38 @@ function setStatus(text, kind) {
 }
 
 /* =========================================================
+   PART 6b: Chat / join / follow feed
+   ========================================================= */
+const FEED_MAX = 6;          // how many lines to show at once
+const FEED_SECONDS = 10;     // how long a line stays
+let lastJoinTime = 0;
+
+function addFeed(kind, icon, name, text) {
+  const feed = document.getElementById("feed");
+  const line = document.createElement("div");
+  line.className = "feed-line " + kind;
+  line.dir = "auto";                       // Arabic shows right-to-left correctly
+  line.appendChild(document.createTextNode(icon));
+  const n = document.createElement("span"); n.className = "n"; n.textContent = name;
+  line.appendChild(n);
+  if (text) line.appendChild(document.createTextNode(text));
+  feed.appendChild(line);
+  while (feed.children.length > FEED_MAX) feed.firstChild.remove();
+  setTimeout(() => line.classList.add("gone"), FEED_SECONDS * 1000);
+  setTimeout(() => line.remove(), FEED_SECONDS * 1000 + 700);
+}
+
+function onChat(name, text) { if (text && text.trim()) addFeed("chat", "💬", name, text); }
+function onFollow(name) { addFeed("follow", "➕", name, ""); }
+function onJoin(name) {
+  // In busy lives many people join at once, so show at most one join per second
+  const now = Date.now();
+  if (now - lastJoinTime < 1000) return;
+  lastJoinTime = now;
+  addFeed("join", "👋", name, "");
+}
+
+/* =========================================================
    PART 7: Reading TikTok messages
    ========================================================= */
 function nameOf(user) { return (user && (user.nickname || user.uniqueId)) || "?"; }
@@ -561,6 +609,13 @@ function handleEvent(type, data) {
   if (!type || !data) return;
   if (type.includes("LikeMessage")) {
     onLikes(nameOf(data.user), Number(data.likeCount) || 1);
+  } else if (type.includes("ChatMessage")) {
+    onChat(nameOf(data.user), data.comment);
+  } else if (type.includes("MemberMessage")) {
+    onJoin(nameOf(data.user));
+  } else if (type.includes("SocialMessage")) {
+    const action = String(data.action || "") + String((data.common && data.common.displayText && data.common.displayText.displayType) || "");
+    if (action.toLowerCase().includes("follow")) onFollow(nameOf(data.user));
   } else if (type.includes("GiftMessage")) {
     const d = data.giftDetails || {};
     if (Number(d.giftType) === 1 && !Number(data.repeatEnd)) return;   // wait until a combo finishes
@@ -622,6 +677,8 @@ for (const w of WEAPONS) {
   addTestBtn(w.emoji, () => handleEvent("WebcastGiftMessage", {
     user: { nickname: pick(fakeNames) }, giftDetails: { giftName: w.gift, diamondCount: w.coins, giftType: 2 }, repeatCount: 1 }));
 }
+addTestBtn("💬", () => handleEvent("WebcastChatMessage", { user: { nickname: pick(fakeNames) }, comment: pick(["هلا والله 👋", "اكسر البرج 😂", "Let's go!!", "وش هالبرج 🔥", "صاروخ صاروخ 🚀"]) }));
+addTestBtn("👋", () => handleEvent("WebcastMemberMessage", { user: { nickname: pick(fakeNames) } }));
 addTestBtn("🔄", buildTower);
 
 function testMode() {
