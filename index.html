@@ -53,6 +53,11 @@
   }
   #status .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #666; margin-right: 6px; }
   #status.on .dot { background: #3dff8a; }
+  #disconnect-btn {
+    display: block; width: auto; margin: 0 auto 6px; padding: 6px 14px;
+    font-size: 13px; font-weight: 600; background: var(--card); color: var(--muted);
+    border: 1px solid #332d4a; border-radius: 20px;
+  }
   #status.err .dot { background: var(--pink); }
 
   /* Big like counter */
@@ -139,6 +144,7 @@
 <!-- ================= LIVE SCREEN ================= -->
 <div id="live">
   <div id="status"><span class="dot"></span><span id="status-text">Connecting…</span></div>
+  <button id="disconnect-btn">✕ Disconnect</button>
 
   <div id="likes-box">
     <div id="heart">❤️</div>
@@ -366,6 +372,25 @@ document.querySelectorAll("[data-test]").forEach((btn) => {
 document.getElementById("hide-test").addEventListener("click", () => {
   document.getElementById("test-bar").style.display = "none";
 });
+
+/* =========================================================
+   PART 6: Disconnect and go back to the setup screen
+   ========================================================= */
+function disconnect() {
+  if (socket) {
+    socket.onclose = null;   // don't show an error message
+    socket.close();
+    socket = null;
+  }
+  totalLikes = 0;
+  document.getElementById("like-count").textContent = "0";
+  document.getElementById("gifts").innerHTML = "";
+  document.getElementById("chat").innerHTML = "";
+  document.getElementById("test-bar").style.display = "none";
+  document.getElementById("live").style.display = "none";
+  document.getElementById("setup").style.display = "block";
+}
+document.getElementById("disconnect-btn").addEventListener("click", disconnect);
 
 document.getElementById("connect-btn").addEventListener("click", connect);
 document.getElementById("test-btn").addEventListener("click", testMode);
