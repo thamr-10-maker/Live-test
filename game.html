@@ -18,61 +18,82 @@
     overflow: hidden;
   }
 
-  /* ---------- Setup screen ---------- */
+  /* ---------- Setup screen (only the streamer sees this) ---------- */
   #setup { padding: 24px 20px; max-width: 480px; margin: 0 auto; height: 100%; overflow-y: auto; }
   #setup h1 { font-size: 26px; margin-bottom: 6px; }
   #setup p { color: var(--muted); font-size: 14px; margin-bottom: 14px; line-height: 1.5; }
-  .rules { background: var(--card); border-radius: 12px; padding: 12px 14px; font-size: 14px; line-height: 1.8; }
   label { display: block; font-size: 13px; color: var(--muted); margin: 14px 0 6px; }
   input { width: 100%; padding: 14px; font-size: 16px; border-radius: 12px; border: 1px solid #332d4a; background: var(--card); color: var(--text); }
   button { font-size: 16px; font-weight: 700; padding: 14px; border: 0; border-radius: 12px; cursor: pointer; width: 100%; }
   .btn-main { background: var(--pink); color: white; margin-top: 18px; }
   .btn-soft { background: var(--card); color: var(--text); margin-top: 10px; border: 1px solid #332d4a; }
 
+  /* ---------- Gift → weapon legend (icons only, no words) ---------- */
+  .legend { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
+  .chip {
+    background: rgba(26,23,38,.85); border: 1px solid #2f2847; border-radius: 10px;
+    padding: 4px 2px; display: flex; align-items: center; justify-content: center; gap: 2px;
+    font-size: 19px; line-height: 1; white-space: nowrap;
+  }
+  .chip .arrow { font-size: 11px; color: var(--muted); }
+  .chip .x { font-size: 10px; color: var(--muted); font-weight: 700; }
+  .gicon { display: inline-flex; width: 22px; height: 22px; align-items: center; justify-content: center; }
+  .gicon img { width: 22px; height: 22px; object-fit: contain; }
+  .chip.hit { animation: chipHit .6s; }
+  @keyframes chipHit { 0%,100% { transform: scale(1); } 40% { transform: scale(1.25); background: var(--gold); } }
+
   /* ---------- Game screen ---------- */
   #game { display: none; height: 100%; position: relative; }
-  #world { position: absolute; left: 0; right: 0; bottom: 74px; top: 0; display: flex; align-items: flex-end; justify-content: center; }
-  #world canvas { width: 100% !important; height: auto !important; max-height: 100%; max-width: 100%; object-fit: contain; }
+  #world { position: absolute; left: 0; right: 0; bottom: 0; top: 0; display: flex; align-items: flex-end; justify-content: center; }
+  #world canvas { width: 100% !important; height: auto !important; max-height: 100%; max-width: 100%; }
+  #world.shake { animation: quake .12s linear infinite; }
+  @keyframes quake {
+    0% { transform: translate(0,0); } 25% { transform: translate(-7px,3px); }
+    50% { transform: translate(6px,-4px); } 75% { transform: translate(-4px,-2px); } 100% { transform: translate(0,0); }
+  }
+  body.testing #world { bottom: 74px; }
 
-  #hud { position: absolute; top: 0; left: 0; right: 0; padding: 10px 14px; pointer-events: none; }
-  #top-row { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--muted); }
+  #hud { position: absolute; top: 0; left: 0; right: 0; padding: 8px 12px; pointer-events: none; }
+  #top-row { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--muted); margin-bottom: 6px; }
   #status .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #666; margin-right: 5px; }
   #status.on .dot { background: var(--green); }
   #status.err .dot { background: var(--pink); }
-  #menu-btn { pointer-events: auto; width: auto; padding: 5px 12px; font-size: 12px; font-weight: 600; background: var(--card); color: var(--muted); border: 1px solid #332d4a; border-radius: 20px; }
+  #menu-btn { pointer-events: auto; width: auto; padding: 5px 12px; font-size: 13px; background: var(--card); color: var(--muted); border: 1px solid #332d4a; border-radius: 20px; }
 
-  .bar-label { display: flex; justify-content: space-between; font-size: 13px; font-weight: 700; margin: 10px 0 4px; }
-  .bar { height: 10px; background: #251f38; border-radius: 6px; overflow: hidden; }
+  .bar-row { display: flex; align-items: center; gap: 8px; margin: 5px 0; }
+  .bar-row .ico { font-size: 18px; width: 22px; text-align: center; }
+  .bar-row .num { font-size: 13px; font-weight: 800; min-width: 52px; text-align: right; }
+  .bar { flex: 1; height: 10px; background: #251f38; border-radius: 6px; overflow: hidden; }
   .bar > div { height: 100%; width: 100%; border-radius: 6px; transition: width .3s; }
   #health-fill { background: linear-gradient(90deg, var(--pink), var(--gold)); }
-  #wind-fill { background: linear-gradient(90deg, #ff7ab0, var(--pink)); width: 0%; }
+  #wind-fill { background: linear-gradient(90deg, #8fd3ff, #e3f6ff); width: 0%; }
 
-  #leaders { margin-top: 8px; font-size: 12px; color: var(--muted); line-height: 1.6; }
+  #hud .legend { margin-top: 8px; }
+  #leaders { margin-top: 8px; font-size: 13px; line-height: 1.55; }
   #leaders b { color: var(--gold); }
 
   #big-alert {
-    position: absolute; left: 50%; top: 30%; transform: translate(-50%, -50%) scale(.6);
-    background: var(--gold); color: #1a1200; padding: 14px 22px; border-radius: 18px;
-    font-size: 20px; font-weight: 800; text-align: center; opacity: 0; pointer-events: none;
-    transition: all .25s; width: 86%; max-width: 380px; box-shadow: 0 10px 40px rgba(255,194,61,.45);
+    position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%) scale(.6);
+    background: var(--gold); color: #1a1200; padding: 12px 18px; border-radius: 18px;
+    font-size: 22px; font-weight: 800; text-align: center; opacity: 0; pointer-events: none;
+    transition: all .25s; max-width: 92%; box-shadow: 0 10px 40px rgba(255,194,61,.45);
+    display: flex; align-items: center; justify-content: center; gap: 8px; white-space: nowrap;
   }
+  #big-alert .who { max-width: 170px; overflow: hidden; text-overflow: ellipsis; }
+  #big-alert .gicon, #big-alert .gicon img { width: 30px; height: 30px; }
   #big-alert.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-  #big-alert.win { background: var(--pink); color: white; box-shadow: 0 10px 40px rgba(255,59,107,.5); }
-
-  #feed { position: absolute; left: 12px; bottom: 90px; width: 60%; pointer-events: none; }
-  .feed-line { font-size: 13px; background: rgba(26,23,38,.85); padding: 6px 10px; border-radius: 10px; margin-top: 5px; animation: fadeIn .3s; }
+  #big-alert.win { background: var(--pink); color: white; font-size: 26px; box-shadow: 0 10px 40px rgba(255,59,107,.5); }
 
   #test-bar {
-    position: absolute; bottom: 0; left: 0; right: 0; padding: 8px 10px 16px;
-    background: rgba(13,11,20,.92); border-top: 1px solid #2a2440;
-    display: none; grid-template-columns: repeat(5, 1fr); gap: 6px;
+    position: absolute; bottom: 0; left: 0; right: 0; padding: 6px 8px 14px;
+    background: rgba(13,11,20,.95); border-top: 1px solid #2a2440;
+    display: none; grid-template-columns: repeat(9, 1fr); gap: 4px;
   }
-  #test-bar button { font-size: 12px; padding: 9px 2px; background: var(--card); color: var(--text); border: 1px solid #332d4a; }
+  body.testing #test-bar { display: grid; }
+  #test-bar button { font-size: 18px; padding: 10px 0; background: var(--card); color: var(--text); border: 1px solid #332d4a; border-radius: 10px; }
 
-  #menu { position: absolute; inset: 0; background: rgba(13,11,20,.88); display: none; align-items: center; justify-content: center; }
+  #menu { position: absolute; inset: 0; background: rgba(13,11,20,.9); display: none; align-items: center; justify-content: center; }
   #menu > div { width: 80%; max-width: 320px; }
-
-  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 </style>
 </head>
 <body>
@@ -80,13 +101,8 @@
 <!-- ================= SETUP SCREEN ================= -->
 <div id="setup">
   <h1>🃏 House of Cards</h1>
-  <p>Viewers try to knock down your tower. Likes do a little. Gifts do a lot.</p>
-  <div class="rules">
-    ❤️ Every <b id="likes-rule">50</b> likes = a puff of wind on the top<br>
-    🌹 Small gift (1–9 coins) = small blast<br>
-    🎁 Medium gift (10–99 coins) = big blast<br>
-    🦁 Huge gift (100+ coins) = the whole tower falls
-  </div>
+  <p>Viewers attack your tower. Likes make wind. Each gift is a different weapon. Bigger gift = bigger weapon.</p>
+  <div class="legend" id="setup-legend"></div>
 
   <label for="username">TikTok username (without @)</label>
   <input id="username" placeholder="example: ahmed_live" autocomplete="off" autocapitalize="off">
@@ -104,29 +120,18 @@
 
   <div id="hud">
     <div id="top-row">
-      <div id="status"><span class="dot"></span><span id="status-text">Connecting…</span></div>
-      <button id="menu-btn">☰ Menu</button>
+      <div id="status"><span class="dot"></span><span id="status-text"></span></div>
+      <button id="menu-btn">☰</button>
     </div>
-
-    <div class="bar-label"><span>🃏 Tower</span><span id="health-text">100%</span></div>
-    <div class="bar"><div id="health-fill"></div></div>
-
-    <div class="bar-label"><span>❤️ Wind</span><span id="wind-text">0 / 50</span></div>
-    <div class="bar"><div id="wind-fill"></div></div>
-
+    <div class="bar-row"><span class="ico">🃏</span><div class="bar"><div id="health-fill"></div></div><span class="num" id="health-text">100%</span></div>
+    <div class="bar-row"><span class="ico">💨</span><div class="bar"><div id="wind-fill"></div></div><span class="num" id="wind-text">0/50</span></div>
+    <div class="legend" id="game-legend"></div>
     <div id="leaders"></div>
   </div>
 
-  <div id="feed"></div>
   <div id="big-alert"></div>
 
-  <div id="test-bar">
-    <button data-test="like">❤️ +10</button>
-    <button data-test="small">🌹 1</button>
-    <button data-test="medium">🎁 30</button>
-    <button data-test="big">🦁 500</button>
-    <button data-test="rebuild">🔄</button>
-  </div>
+  <div id="test-bar"></div>
 
   <div id="menu">
     <div>
@@ -140,59 +145,114 @@
 
 <script>
 /* =========================================================
-   SETTINGS – change these numbers to tune the game
+   SETTINGS – change these to tune the game
    ========================================================= */
 const LIKES_PER_PUFF = 50;     // how many likes make one puff of wind
-const SMALL_GIFT_MAX = 9;      // 1–9 coins = small blast
-const MEDIUM_GIFT_MAX = 99;    // 10–99 coins = medium blast, 100+ = huge
-const LEVELS = 6;              // how many floors the tower has
-const DESTROYED_AT = 0.15;     // tower counts as destroyed when only 15% is left
+const LEVELS = 6;              // floors in the tower
+const DESTROYED_AT = 0.15;     // tower is "destroyed" when only 15% is left
 
-document.getElementById("likes-rule").textContent = LIKES_PER_PUFF;
+// Which gift fires which weapon.
+// name = the gift's name in TikTok, coins = its price, icon = picture shown until we see the real gift picture.
+const WEAPONS = [
+  { gift: "Rose",         coins: 1,    icon: "🌹", weapon: "rock",       emoji: "🪨" },
+  { gift: "Finger Heart", coins: 5,    icon: "🫰", weapon: "arrow",      emoji: "🏹" },
+  { gift: "Doughnut",     coins: 30,   icon: "🍩", weapon: "bomb",       emoji: "💣" },
+  { gift: "Hand Hearts",  coins: 100,  icon: "🫶", weapon: "rocket",     emoji: "🚀" },
+  { gift: "Corgi",        coins: 299,  icon: "🐶", weapon: "tornado",    emoji: "🌪️" },
+  { gift: "Money Gun",    coins: 500,  icon: "💸", weapon: "meteor",     emoji: "☄️" },
+  { gift: "Galaxy",       coins: 1000, icon: "🌌", weapon: "earthquake", emoji: "🌍" },
+];
 
 /* =========================================================
-   PART 1: The physics world (Matter.js does the falling)
+   PART 1: Gift pictures + the legend on screen
    ========================================================= */
-const { Engine, Render, Runner, Bodies, Body, Composite, Sleeping, Events } = Matter;
+// When a real gift arrives we remember its picture, so the legend shows the real TikTok gift.
+let giftPics = {};
+try { giftPics = JSON.parse(localStorage.getItem("gift_pics") || "{}"); } catch (e) {}
+function rememberPic(name, url) {
+  if (!name || !url || giftPics[name.toLowerCase()] === url) return;
+  giftPics[name.toLowerCase()] = url;
+  try { localStorage.setItem("gift_pics", JSON.stringify(giftPics)); } catch (e) {}
+  drawLegends();
+}
 
-const W = 400, H = 720;           // size of our game world
-const GROUND_Y = 700;             // where the floor is
+// Makes a small gift picture (real picture if we have it, otherwise the emoji)
+function giftIcon(name, fallbackEmoji, urlNow) {
+  const span = document.createElement("span");
+  span.className = "gicon";
+  const url = urlNow || giftPics[(name || "").toLowerCase()];
+  if (url) {
+    const img = document.createElement("img");
+    img.src = url; img.alt = "";
+    img.onerror = () => { span.textContent = fallbackEmoji || "🎁"; };
+    span.appendChild(img);
+  } else {
+    span.textContent = fallbackEmoji || "🎁";
+  }
+  return span;
+}
+
+function makeChip(left, rightEmoji, id) {
+  const chip = document.createElement("div");
+  chip.className = "chip";
+  if (id) chip.dataset.weapon = id;
+  chip.appendChild(left);
+  const arrow = document.createElement("span"); arrow.className = "arrow"; arrow.textContent = "➜";
+  chip.appendChild(arrow);
+  chip.appendChild(document.createTextNode(rightEmoji));
+  return chip;
+}
+
+function drawLegends() {
+  for (const id of ["setup-legend", "game-legend"]) {
+    const box = document.getElementById(id);
+    box.innerHTML = "";
+    // Likes chip:  ❤️×50 ➜ 💨
+    const likes = document.createElement("span");
+    likes.innerHTML = '❤️<span class="x">×' + LIKES_PER_PUFF + '</span>';
+    box.appendChild(makeChip(likes, "💨", "wind"));
+    for (const w of WEAPONS) box.appendChild(makeChip(giftIcon(w.gift, w.icon), w.emoji, w.weapon));
+  }
+}
+drawLegends();
+
+function flashChip(weaponId) {
+  const chip = document.querySelector('#game-legend [data-weapon="' + weaponId + '"]');
+  if (!chip) return;
+  chip.classList.remove("hit"); void chip.offsetWidth; chip.classList.add("hit");
+}
+
+/* =========================================================
+   PART 2: The physics world (Matter.js does the falling)
+   ========================================================= */
+const { Engine, Render, Runner, Bodies, Body, Composite, Events } = Matter;
+const W = 400, H = 720, GROUND_Y = 700;
 
 const engine = Engine.create({ positionIterations: 10, velocityIterations: 8 });
 const render = Render.create({
   element: document.getElementById("world"),
   engine: engine,
-  options: { width: W, height: H, wireframes: false, background: "transparent", showSleeping: false,
+  options: { width: W, height: H, wireframes: false, background: "transparent",
              pixelRatio: Math.min(window.devicePixelRatio || 1, 2) }
 });
+Composite.add(engine.world, Bodies.rectangle(W / 2, GROUND_Y + 20, W * 3, 40,
+  { isStatic: true, render: { fillStyle: "#2a2140" } }));
 
-// The floor and walls (they never move)
-const ground = Bodies.rectangle(W / 2, GROUND_Y + 20, W * 3, 40, { isStatic: true,
-  render: { fillStyle: "#2a2140" } });
-Composite.add(engine.world, ground);
-
-let cards = [];   // every card in the tower
-
-// Card look: white with red edge, like a playing card
-function cardStyle(isRoof) {
-  return { fillStyle: isRoof ? "#f3ead6" : "#fdfaf2", strokeStyle: "#c0283c", lineWidth: 1.5 };
-}
+let cards = [];
 
 function makeCard(x, y, w, h, isRoof) {
   const c = Bodies.rectangle(x, y, w, h, {
     friction: 1, frictionStatic: 2, restitution: 0, density: 0.002, slop: 0.02,
-    chamfer: { radius: 1 }, render: cardStyle(isRoof)
+    chamfer: { radius: 1 },
+    render: { fillStyle: isRoof ? "#f3ead6" : "#fdfaf2", strokeStyle: "#c0283c", lineWidth: 1.5 }
   });
   Body.setStatic(c, true);   // locked in place until something hits it
-  c.released = false;
-  c.restsOn = [];            // the cards holding this card up
-  c.holdsUp = [];            // the cards this card is holding up
+  c.released = false; c.restsOn = []; c.holdsUp = [];
   return c;
 }
-
 function supports(top, bottom) { top.restsOn.push(bottom); bottom.holdsUp.push(top); }
 
-// Unlock a card so it can fall. Everything resting on it falls too.
+// Unlock a card so it falls. Everything resting on it falls too.
 function release(c) {
   if (c.released) return;
   c.released = true;
@@ -200,85 +260,84 @@ function release(c) {
   Body.setAngularVelocity(c, (Math.random() - .5) * 0.05);
   for (const up of c.holdsUp) setTimeout(() => release(up), 60 + Math.random() * 120);
 }
+// Unlock and throw a card
+function hit(c, vx, vy, spin) {
+  release(c);
+  Body.setVelocity(c, { x: vx, y: vy });
+  Body.setAngularVelocity(c, spin != null ? spin : (Math.random() - .5) * 0.3);
+}
 
-// Build a pyramid: bottom floor has LEVELS rooms, each floor above has one less
 function buildTower() {
+  clearTimeout(rebuildTimer);
   for (const c of cards) Composite.remove(engine.world, c);
   cards = [];
-
-  const STAND_H = 46, STAND_W = 9, ROOF_W = 58, ROOF_H = 6;
-  const ROOM_GAP = 60;          // distance between room centers
-  const FLOOR_H = STAND_H + ROOF_H;
-
+  const STAND_H = 46, STAND_W = 9, ROOF_W = 58, ROOF_H = 6, ROOM_GAP = 60, FLOOR_H = STAND_H + ROOF_H;
   for (let level = 0; level < LEVELS; level++) {
     const rooms = LEVELS - level;
     const startX = W / 2 - ((rooms - 1) * ROOM_GAP) / 2;
     const baseY = GROUND_Y - level * FLOOR_H;
-
     for (let r = 0; r < rooms; r++) {
       const cx = startX + r * ROOM_GAP;
       const left  = makeCard(cx - 22, baseY - STAND_H / 2, STAND_W, STAND_H, false);
       const right = makeCard(cx + 22, baseY - STAND_H / 2, STAND_W, STAND_H, false);
       const roof  = makeCard(cx, baseY - STAND_H - ROOF_H / 2, ROOF_W, ROOF_H, true);
       for (const c of [left, right, roof]) { c.level = level; c.isRoof = (c === roof); cards.push(c); }
-
-      // The roof rests on its two standing cards
       supports(roof, left); supports(roof, right);
-      // Standing cards rest on the roof under them (from the floor below)
-      for (const stand of [left, right]) {
-        const below = cards.find(b => b.isRoof && b.level === level - 1 &&
-                                      Math.abs(b.position.x - stand.position.x) < ROOF_W / 2);
-        if (below) supports(stand, below);
+      for (const s of [left, right]) {
+        const below = cards.find(b => b.isRoof && b.level === level - 1 && Math.abs(b.position.x - s.position.x) < ROOF_W / 2);
+        if (below) supports(s, below);
       }
     }
   }
   Composite.add(engine.world, cards);
-
   towerDown = false;
   updateHealth();
 }
 
 /* =========================================================
-   PART 2: Checking how much of the tower is still standing
+   PART 3: Tower health
    ========================================================= */
-let towerDown = false;
-let lastHitter = null;
-
-function isStanding(c) { return !c.released; }
-
-function standingRatio() {
-  if (!cards.length) return 0;
-  return cards.filter(isStanding).length / cards.length;
-}
+let towerDown = false, lastHitter = null, rebuildTimer = null;
+const standing = () => cards.filter(c => !c.released);
 
 function updateHealth() {
-  const pct = Math.round(standingRatio() * 100);
+  const ratio = cards.length ? standing().length / cards.length : 0;
+  const pct = Math.round(ratio * 100);
   document.getElementById("health-fill").style.width = pct + "%";
   document.getElementById("health-text").textContent = pct + "%";
-
-  if (!towerDown && cards.length && standingRatio() <= DESTROYED_AT) {
+  if (!towerDown && cards.length && ratio <= DESTROYED_AT) {
     towerDown = true;
-    const who = lastHitter || "The viewers";
-    showAlert("🏆 " + who + " destroyed the tower!", true);
-    setTimeout(buildTower, 4500);
+    const box = alertBox(true);
+    box.appendChild(document.createTextNode("🏆"));
+    const who = document.createElement("span"); who.className = "who"; who.textContent = lastHitter || "";
+    box.appendChild(who);
+    box.appendChild(document.createTextNode("🃏💥"));
+    rebuildTimer = setTimeout(buildTower, 4500);
   }
 }
-setInterval(updateHealth, 300);
+setInterval(updateHealth, 250);
 
-
-// Remove cards that fell off the screen (keeps the phone fast)
+// Remove cards that flew off the screen (keeps the phone fast)
 Events.on(engine, "afterUpdate", () => {
   for (const c of cards) {
-    if (c.position.y > H + 200 || c.position.x < -300 || c.position.x > W + 300) {
+    if (c.released && (c.position.y > H + 200 || c.position.x < -300 || c.position.x > W + 300)) {
       Composite.remove(engine.world, c);
     }
   }
 });
 
+function randomStanding(fromLevel, toLevel) {
+  let pool = standing().filter(c => c.level >= fromLevel && c.level <= toLevel);
+  if (!pool.length) pool = standing();
+  return pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
+}
+
 /* =========================================================
-   PART 3: Blasts and wind
+   PART 4: Weapons
+   Each weapon is an emoji that flies across the screen.
    ========================================================= */
-const booms = [];   // explosion circles we draw on screen
+const flyers = [];   // things flying on screen right now
+const booms = [];    // explosion rings
 
 function blast(x, y, radius, power) {
   booms.push({ x, y, radius, start: performance.now() });
@@ -286,79 +345,132 @@ function blast(x, y, radius, power) {
     const dx = c.position.x - x, dy = c.position.y - y;
     const dist = Math.sqrt(dx * dx + dy * dy) || 1;
     if (dist > radius) continue;
-    const strength = power * (1 - dist / radius);
-    release(c);
-    Body.setVelocity(c, {
-      x: (dx / dist) * strength + (Math.random() - .5) * 2,
-      y: (dy / dist) * strength - strength * 0.4
-    });
-    Body.setAngularVelocity(c, (Math.random() - .5) * 0.3 * (strength / power + .2));
+    const s = power * (1 - dist / radius);
+    hit(c, (dx / dist) * s + (Math.random() - .5) * 2, (dy / dist) * s - s * 0.4);
   }
 }
 
-// The highest card still standing
-function topStandingCard() {
-  let best = null;
-  for (const c of cards) if (isStanding(c) && (!best || c.position.y < best.position.y)) best = c;
-  return best;
+// Add a flying emoji. It moves from (x0,y0) to (x1,y1) in "ms" milliseconds.
+function fly(o) {
+  flyers.push(Object.assign({ start: performance.now(), size: 40, arc: 0, angle: 0 }, o));
 }
 
-// A random standing card, from the top part or the middle of the tower
-function randomStandingCard(fromLevel, toLevel) {
-  const pool = cards.filter(c => isStanding(c) && c.level >= fromLevel && c.level <= toLevel);
-  const any = pool.length ? pool : cards.filter(isStanding);
-  return any.length ? any[Math.floor(Math.random() * any.length)] : null;
-}
+const weaponActions = {
+  wind() {
+    const top = standing().sort((a, b) => a.position.y - b.position.y)[0];
+    if (!top) return;
+    const dir = Math.random() < .5 ? -1 : 1;
+    fly({ emoji: "💨", x0: dir > 0 ? -40 : W + 40, y0: top.position.y, x1: top.position.x, y1: top.position.y,
+          ms: 450, size: 42, flip: dir < 0,
+          onHit: () => { for (const c of standing()) if (c.level === top.level && Math.abs(c.position.x - top.position.x) < 40) hit(c, dir * 3, -1, dir * 0.08); } });
+  },
+  rock() {   // 🪨 thrown in an arc, small hit near the top
+    const t = randomStanding(LEVELS - 3, LEVELS); if (!t) return;
+    const fromLeft = Math.random() < .5;
+    fly({ emoji: "🪨", x0: fromLeft ? -30 : W + 30, y0: 200, x1: t.position.x, y1: t.position.y,
+          ms: 700, arc: 120, size: 34, spin: true, onHit: () => blast(t.position.x, t.position.y, 40, 6) });
+  },
+  arrow() {  // 🏹 flies straight through one floor, knocks the first few cards it touches
+    const t = randomStanding(3, LEVELS - 1); if (!t) return;
+    const dir = Math.random() < .5 ? 1 : -1;
+    fly({ emoji: "🏹", x0: dir > 0 ? -40 : W + 40, y0: t.position.y, x1: dir > 0 ? W + 40 : -40, y1: t.position.y,
+          ms: 900, size: 38, flip: dir < 0, pierce: 3, dir: dir });
+  },
+  bomb() {   // 💣 falls from the sky onto the upper middle
+    const t = randomStanding(3, 4); if (!t) return;
+    fly({ emoji: "💣", x0: t.position.x, y0: -40, x1: t.position.x, y1: t.position.y,
+          ms: 900, size: 40, onHit: () => blast(t.position.x, t.position.y, 60, 8) });
+  },
+  rocket() { // 🚀 flies in from the side into the lower middle
+    const t = randomStanding(2, 2); if (!t) return;
+    const dir = Math.random() < .5 ? 1 : -1;
+    fly({ emoji: "🚀", x0: dir > 0 ? -50 : W + 50, y0: t.position.y - 60, x1: t.position.x, y1: t.position.y,
+          ms: 750, size: 46, rotate: dir > 0 ? Math.PI / 4 : -Math.PI * 3 / 4, trail: true,
+          onHit: () => blast(t.position.x, t.position.y, 90, 12) });
+  },
+  tornado() { // 🌪️ sweeps across and lifts everything above the 2nd floor
+    const dir = Math.random() < .5 ? 1 : -1;
+    fly({ emoji: "🌪️", x0: dir > 0 ? -60 : W + 60, y0: GROUND_Y - 160, x1: dir > 0 ? W + 60 : -60, y1: GROUND_Y - 160,
+          ms: 2200, size: 110, wobble: true, sweep: 2, dir: dir });
+  },
+  meteor() { // ☄️ falls from the corner, huge blast low in the tower
+    const t = randomStanding(1, 1); if (!t) return;
+    const fromRight = Math.random() < .5;
+    fly({ emoji: "☄️", x0: fromRight ? W + 60 : -60, y0: -80, x1: t.position.x, y1: t.position.y,
+          ms: 1000, size: 70, flip: !fromRight, trail: true,
+          onHit: () => blast(t.position.x, t.position.y, 170, 16) });
+  },
+  earthquake() { // 🌍 the whole screen shakes and every card falls
+    const world = document.getElementById("world");
+    world.classList.add("shake");
+    fly({ emoji: "🌍", x0: W / 2, y0: H * 0.45, x1: W / 2, y1: H * 0.45, ms: 1600, size: 120, pulse: true });
+    const list = standing().sort((a, b) => a.level - b.level);
+    list.forEach((c, i) => setTimeout(() => hit(c, (Math.random() - .5) * 10, -Math.random() * 6), i * 15));
+    setTimeout(() => world.classList.remove("shake"), 1600);
+  },
+};
 
-function windPuff() {
-  const top = topStandingCard();
-  if (!top) return;
-  const dir = Math.random() < .5 ? -1 : 1;
-  for (const c of cards) {
-    if (c.level === top.level && Math.abs(c.position.x - top.position.x) < 40) {
-      release(c);
-      Body.setVelocity(c, { x: dir * 3, y: -1 });
-      Body.setAngularVelocity(c, dir * 0.08);
-    }
-  }
-  addFeed("💨 Wind hit the top!");
-}
-
-// Small gift: hits near the top (about one floor)
-function smallBlast() {
-  const c = randomStandingCard(LEVELS - 3, LEVELS);
-  if (c) blast(c.position.x, c.position.y, 40, 6);
-}
-// Medium gift: hits the middle (about two floors)
-function mediumBlast() {
-  const c = randomStandingCard(2, 3);
-  if (c) blast(c.position.x, c.position.y, 70, 9);
-}
-function hugeBlast() {
-  blast(W / 2, GROUND_Y - 30, 600, 22);
-}
-
-// Draw explosion rings on top of the game
+// Draw flying emojis + explosion rings every frame
 Events.on(render, "afterRender", () => {
   const ctx = render.context, now = performance.now();
+
+  for (let i = flyers.length - 1; i >= 0; i--) {
+    const f = flyers[i];
+    const p = Math.min(1, (now - f.start) / f.ms);
+    let x = f.x0 + (f.x1 - f.x0) * p;
+    let y = f.y0 + (f.y1 - f.y0) * p - Math.sin(Math.PI * p) * f.arc;
+    if (f.wobble) y += Math.sin(now / 80) * 8;
+
+    // Arrow: knock the first few cards it touches
+    if (f.pierce) {
+      for (const c of standing()) {
+        if (f.pierce <= 0) break;
+        if (Math.abs(c.position.y - y) < 26 && Math.abs(c.position.x - x) < 14) { hit(c, f.dir * 7, -2); f.pierce--; }
+      }
+    }
+    // Tornado: lift every card it passes above floor "sweep"
+    if (f.sweep != null) {
+      for (const c of standing()) {
+        if (c.level >= f.sweep && Math.abs(c.position.x - x) < 34) hit(c, f.dir * 5, -7 - Math.random() * 4, f.dir * 0.4);
+      }
+    }
+
+    // Trail of sparks for rockets and meteors
+    if (f.trail) {
+      ctx.beginPath(); ctx.arc(x - (f.x1 - f.x0) * 0.04, y - (f.y1 - f.y0) * 0.04, f.size * 0.35, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(255,150,40,0.35)"; ctx.fill();
+    }
+
+    ctx.save();
+    ctx.translate(x, y);
+    if (f.rotate) ctx.rotate(f.rotate);
+    if (f.spin) ctx.rotate(now / 90);
+    if (f.flip) ctx.scale(-1, 1);
+    const size = f.pulse ? f.size * (1 + 0.15 * Math.sin(now / 60)) : f.size;
+    ctx.globalAlpha = f.pulse ? 1 - p * 0.6 : 1;
+    ctx.font = size + "px serif";
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText(f.emoji, 0, 0);
+    ctx.restore();
+
+    if (p >= 1) { flyers.splice(i, 1); if (f.onHit) f.onHit(); }
+  }
+
   for (let i = booms.length - 1; i >= 0; i--) {
     const b = booms[i], t = (now - b.start) / 500;
     if (t > 1) { booms.splice(i, 1); continue; }
     ctx.beginPath();
     ctx.arc(b.x, b.y, b.radius * (0.3 + t * 0.7), 0, Math.PI * 2);
-    ctx.fillStyle = "rgba(255,194,61," + (0.35 * (1 - t)) + ")";
-    ctx.fill();
-    ctx.lineWidth = 4 * (1 - t);
-    ctx.strokeStyle = "rgba(255,59,107," + (1 - t) + ")";
-    ctx.stroke();
+    ctx.fillStyle = "rgba(255,194,61," + (0.35 * (1 - t)) + ")"; ctx.fill();
+    ctx.lineWidth = 4 * (1 - t); ctx.strokeStyle = "rgba(255,59,107," + (1 - t) + ")"; ctx.stroke();
   }
 });
 
 /* =========================================================
-   PART 4: What viewers do → what happens
+   PART 5: Viewers → weapons
    ========================================================= */
 let windLikes = 0;
-const leaders = {};   // name → coins spent knocking the tower
+const leaders = {};
 
 function onLikes(name, amount) {
   if (towerDown) return;
@@ -366,49 +478,55 @@ function onLikes(name, amount) {
   while (windLikes >= LIKES_PER_PUFF) {
     windLikes -= LIKES_PER_PUFF;
     lastHitter = name;
-    windPuff();
+    weaponActions.wind();
+    flashChip("wind");
   }
   document.getElementById("wind-fill").style.width = (windLikes / LIKES_PER_PUFF * 100) + "%";
-  document.getElementById("wind-text").textContent = windLikes + " / " + LIKES_PER_PUFF;
+  document.getElementById("wind-text").textContent = windLikes + "/" + LIKES_PER_PUFF;
 }
 
-function onGift(name, giftName, coins) {
-  leaders[name] = (leaders[name] || 0) + coins;
-  showLeaders();
-  if (towerDown) { addFeed("🎁 " + name + " sent " + giftName); return; }
-  lastHitter = name;
+// Find the weapon for a gift: by its name first, otherwise by its price
+function weaponFor(giftName, coinsEach) {
+  const n = (giftName || "").toLowerCase().replace(/s$/, "");
+  const byName = WEAPONS.find(w => w.gift.toLowerCase().replace(/s$/, "") === n);
+  if (byName) return byName;
+  let pick = WEAPONS[0];
+  for (const w of WEAPONS) if (coinsEach >= w.coins) pick = w;
+  return pick;
+}
 
-  if (coins <= SMALL_GIFT_MAX) {
-    smallBlast();
-    addFeed("🌹 " + name + " sent " + giftName + " – small blast!");
-  } else if (coins <= MEDIUM_GIFT_MAX) {
-    mediumBlast();
-    showAlert("💥 " + name + " sent " + giftName + "! BOOM!");
-  } else {
-    hugeBlast();
-    showAlert("🔥 " + name + " sent " + giftName + "! MEGA BLAST!");
-  }
+function onGift(name, giftName, coinsEach, count, picUrl) {
+  rememberPic(giftName, picUrl);
+  leaders[name] = (leaders[name] || 0) + coinsEach * count;
+  showLeaders();
+  const w = weaponFor(giftName, coinsEach);
+
+  // Alert: [name] [gift picture] ×count ➜ [weapon]
+  const box = alertBox(false);
+  const who = document.createElement("span"); who.className = "who"; who.textContent = name;
+  box.appendChild(who);
+  box.appendChild(giftIcon(giftName, w.icon, picUrl));
+  if (count > 1) box.appendChild(document.createTextNode("×" + count));
+  box.appendChild(document.createTextNode("➜ " + w.emoji));
+  flashChip(w.weapon);
+
+  if (towerDown) return;
+  lastHitter = name;
+  // Combo gifts fire the weapon several times (max 5 so the screen stays readable)
+  const shots = Math.min(count, 5);
+  for (let i = 0; i < shots; i++) setTimeout(() => { if (!towerDown) weaponActions[w.weapon](); }, i * 450);
 }
 
 /* =========================================================
-   PART 5: Screen messages
+   PART 6: Screen messages
    ========================================================= */
-function showAlert(text, isWin) {
+function alertBox(isWin) {
   const a = document.getElementById("big-alert");
-  a.textContent = text;
+  a.innerHTML = "";
   a.className = "show" + (isWin ? " win" : "");
   clearTimeout(window._alertTimer);
   window._alertTimer = setTimeout(() => a.className = "", isWin ? 4000 : 2200);
-}
-
-function addFeed(text) {
-  const feed = document.getElementById("feed");
-  const line = document.createElement("div");
-  line.className = "feed-line";
-  line.textContent = text;
-  feed.appendChild(line);
-  while (feed.children.length > 4) feed.firstChild.remove();
-  setTimeout(() => line.remove(), 6000);
+  return a;
 }
 
 function showLeaders() {
@@ -418,11 +536,9 @@ function showLeaders() {
   box.innerHTML = "";
   top.forEach(([name, coins], i) => {
     const line = document.createElement("div");
-    line.textContent = medals[i] + " " + name + " – ";
-    const b = document.createElement("b");
-    b.textContent = coins + " coins";
-    line.appendChild(b);
-    box.appendChild(line);
+    line.textContent = medals[i] + " " + name + "  ";
+    const b = document.createElement("b"); b.textContent = "🪙" + coins;
+    line.appendChild(b); box.appendChild(line);
   });
 }
 
@@ -432,11 +548,13 @@ function setStatus(text, kind) {
 }
 
 /* =========================================================
-   PART 6: Reading TikTok messages (same as the test page)
+   PART 7: Reading TikTok messages
    ========================================================= */
-function nameOf(user) {
-  if (!user) return "Someone";
-  return user.nickname || user.uniqueId || "Someone";
+function nameOf(user) { return (user && (user.nickname || user.uniqueId)) || "?"; }
+
+function picOf(d) {
+  const img = d.giftImage || d.image || d.icon || {};
+  return (img.url && img.url[0]) || (img.urlList && img.urlList[0]) || (img.url_list && img.url_list[0]) || "";
 }
 
 function handleEvent(type, data) {
@@ -445,44 +563,34 @@ function handleEvent(type, data) {
     onLikes(nameOf(data.user), Number(data.likeCount) || 1);
   } else if (type.includes("GiftMessage")) {
     const d = data.giftDetails || {};
-    const isCombo = Number(d.giftType) === 1;
-    if (isCombo && !Number(data.repeatEnd)) return;   // wait until the combo is done
-    const count = Number(data.repeatCount) || 1;
-    const coins = (Number(d.diamondCount) || 1) * count;
-    const giftName = (d.giftName || d.name || "a gift") + (count > 1 ? " ×" + count : "");
-    onGift(nameOf(data.user), giftName, coins);
+    if (Number(d.giftType) === 1 && !Number(data.repeatEnd)) return;   // wait until a combo finishes
+    onGift(nameOf(data.user), d.giftName || d.name || "", Number(d.diamondCount) || 1,
+           Number(data.repeatCount) || 1, picOf(d));
   }
 }
 
 function handleMessage(raw) {
-  let msg;
-  try { msg = JSON.parse(raw); } catch (e) { return; }
+  let msg; try { msg = JSON.parse(raw); } catch (e) { return; }
   const list = Array.isArray(msg.messages) ? msg.messages : [msg];
   for (const m of list) handleEvent(m.type, m.data);
 }
 
 /* =========================================================
-   PART 7: Connect / test / menu
+   PART 8: Connect / test / menu
    ========================================================= */
 function save(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
 function load(k) { try { return localStorage.getItem(k) || ""; } catch (e) { return ""; } }
-
 const usernameInput = document.getElementById("username");
 const apikeyInput = document.getElementById("apikey");
 usernameInput.value = load("tt_username");
 apikeyInput.value = load("tt_apikey");
 
-let socket = null;
-let started = false;
+let socket = null, started = false;
 
 function startGame() {
   document.getElementById("setup").style.display = "none";
   document.getElementById("game").style.display = "block";
-  if (!started) {
-    started = true;
-    Render.run(render);
-    Runner.run(Runner.create(), engine);
-  }
+  if (!started) { started = true; Render.run(render); Runner.run(Runner.create(), engine); }
   buildTower();
 }
 
@@ -492,12 +600,9 @@ function connect() {
   if (!username) { usernameInput.focus(); return; }
   save("tt_username", username); save("tt_apikey", apiKey);
   startGame();
-  setStatus("Connecting to @" + username + "…");
-
-  const url = "wss://ws.eulerstream.com?uniqueId=" + encodeURIComponent(username) +
-              (apiKey ? "&apiKey=" + encodeURIComponent(apiKey) : "");
-  try { socket = new WebSocket(url); } catch (e) { setStatus("Could not connect", "err"); return; }
-
+  setStatus("@" + username + " …");
+  const url = "wss://ws.eulerstream.com?uniqueId=" + encodeURIComponent(username) + (apiKey ? "&apiKey=" + encodeURIComponent(apiKey) : "");
+  try { socket = new WebSocket(url); } catch (e) { setStatus("✕", "err"); return; }
   socket.onopen = () => setStatus("@" + username, "on");
   socket.onmessage = (e) => { if (typeof e.data === "string") handleMessage(e.data); };
   socket.onclose = (e) => {
@@ -507,37 +612,33 @@ function connect() {
   socket.onerror = () => setStatus("Connection error", "err");
 }
 
-function testMode() {
-  startGame();
-  setStatus("Test mode", "on");
-  document.getElementById("test-bar").style.display = "grid";
-}
-
+// Test buttons: one per weapon
 const fakeNames = ["Sara", "Omar", "Noura", "Faisal", "Lama", "Khalid"];
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+const testBar = document.getElementById("test-bar");
+function addTestBtn(label, fn) { const b = document.createElement("button"); b.textContent = label; b.onclick = fn; testBar.appendChild(b); }
+addTestBtn("❤️", () => handleEvent("WebcastLikeMessage", { likeCount: 10, user: { nickname: pick(fakeNames) } }));
+for (const w of WEAPONS) {
+  addTestBtn(w.emoji, () => handleEvent("WebcastGiftMessage", {
+    user: { nickname: pick(fakeNames) }, giftDetails: { giftName: w.gift, diamondCount: w.coins, giftType: 2 }, repeatCount: 1 }));
+}
+addTestBtn("🔄", buildTower);
 
-document.querySelectorAll("[data-test]").forEach(btn => btn.addEventListener("click", () => {
-  const k = btn.dataset.test, who = pick(fakeNames);
-  if (k === "like")   handleEvent("WebcastLikeMessage", { likeCount: 10, user: { nickname: who } });
-  if (k === "small")  handleEvent("WebcastGiftMessage", { user: { nickname: who }, giftDetails: { giftName: "Rose", diamondCount: 1, giftType: 2 }, repeatCount: 1 });
-  if (k === "medium") handleEvent("WebcastGiftMessage", { user: { nickname: who }, giftDetails: { giftName: "Doughnut", diamondCount: 30, giftType: 2 }, repeatCount: 1 });
-  if (k === "big")    handleEvent("WebcastGiftMessage", { user: { nickname: who }, giftDetails: { giftName: "Lion", diamondCount: 500, giftType: 2 }, repeatCount: 1 });
-  if (k === "rebuild") buildTower();
-}));
+function testMode() {
+  startGame();
+  setStatus("🧪", "on");
+  document.body.classList.add("testing");
+}
 
 const menu = document.getElementById("menu");
 document.getElementById("menu-btn").onclick = () => menu.style.display = "flex";
 document.getElementById("close-menu-btn").onclick = () => menu.style.display = "none";
 document.getElementById("rebuild-btn").onclick = () => { buildTower(); menu.style.display = "none"; };
-document.getElementById("toggle-test-btn").onclick = () => {
-  const bar = document.getElementById("test-bar");
-  bar.style.display = bar.style.display === "grid" ? "none" : "grid";
-  menu.style.display = "none";
-};
+document.getElementById("toggle-test-btn").onclick = () => { document.body.classList.toggle("testing"); menu.style.display = "none"; };
 document.getElementById("disconnect-btn").onclick = () => {
   if (socket) { socket.onclose = null; socket.close(); socket = null; }
   menu.style.display = "none";
-  document.getElementById("test-bar").style.display = "none";
+  document.body.classList.remove("testing");
   document.getElementById("game").style.display = "none";
   document.getElementById("setup").style.display = "block";
 };
