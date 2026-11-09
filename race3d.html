@@ -59,16 +59,18 @@ import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
    SETTINGS
    ========================================================= */
 // Car tiers: cheapest first. "speed" = how much each like pushes this car.
+// All cars are open-wheel race cars. Better gift = better paint + more speed per like.
+// The top 3 gifts get the sleeker futuristic race car.
 const TIERS = [
-  { model: "sedan",       speed: 1.00 },
-  { model: "taxi",        speed: 1.10 },
-  { model: "truck",       speed: 1.20 },
-  { model: "police",      speed: 1.30 },
-  { model: "suv",         speed: 1.45 },
-  { model: "suvLuxury",   speed: 1.60 },
-  { model: "sedanSports", speed: 1.80 },
-  { model: "race",        speed: 2.05 },
-  { model: "raceFuture",  speed: 2.40 },
+  { model: "race",       paint: 0x9aa0a8, icon: "⚪", speed: 1.00 },   // free – grey
+  { model: "race",       paint: 0xf4f4f4, icon: "⬜", speed: 1.10 },   // white
+  { model: "race",       paint: 0x2fbf71, icon: "🟢", speed: 1.20 },   // green
+  { model: "race",       paint: 0x2f6bff, icon: "🔵", speed: 1.30 },   // blue
+  { model: "race",       paint: 0xff8a1f, icon: "🟠", speed: 1.45 },   // orange
+  { model: "race",       paint: 0xe8262f, icon: "🔴", speed: 1.60 },   // red
+  { model: "raceFuture", paint: 0x23252b, icon: "⚫", speed: 1.80 },   // black (future car)
+  { model: "raceFuture", paint: 0x7b3dff, icon: "🟣", speed: 2.05 },   // purple (future car)
+  { model: "raceFuture", paint: 0xf5c518, icon: "🌟", speed: 2.40 },   // gold (future car)
 ];
 const MAX_CARS = 500;
 
@@ -82,9 +84,9 @@ document.body.prepend(renderer.domElement);
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87b9e0);
-scene.fog = new THREE.Fog(0x87b9e0, 260, 520);
+scene.fog = new THREE.Fog(0x87b9e0, 450, 950);
 
-const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 1, 1000);
+const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 1, 1600);
 scene.add(new THREE.HemisphereLight(0xffffff, 0x8a7a5a, 1.6));
 const sun = new THREE.DirectionalLight(0xffffff, 1.6);
 sun.position.set(60, 120, 40);
@@ -99,9 +101,9 @@ window.addEventListener("resize", () => {
 /* =========================================================
    PART 2: The track (an oval: two straights + two half circles)
    ========================================================= */
-const L = 110;          // length of each straight
-const R = 34;           // radius of the curves (to the middle of the track)
-const HALF_W = 11;      // half of the track width
+const L = 200;          // length of each straight
+const R = 46;           // radius of the curves (to the middle of the track)
+const HALF_W = 13;      // half of the track width
 const LOOP = 2 * L + 2 * Math.PI * R;   // length of one lap
 
 // Where is a point on the track? s = distance along the lap, d = sideways offset (+ = outside)
@@ -146,7 +148,7 @@ function stripMesh(d1, d2, y, color, dashEvery) {
 }
 
 // ground (sand) and infield (grass)
-const ground = new THREE.Mesh(new THREE.PlaneGeometry(900, 900), new THREE.MeshLambertMaterial({ color: 0xdcc59a }));
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(1600, 1600), new THREE.MeshLambertMaterial({ color: 0xdcc59a }));
 ground.rotation.x = -Math.PI / 2; ground.position.y = -0.05; scene.add(ground);
 const infield = stripMesh(-R + 0.5, -HALF_W - 1, 0.0, 0x6fae4f); scene.add(infield);
 scene.add(stripMesh(-HALF_W, HALF_W, 0.02, 0x3d4049));                 // asphalt
@@ -165,17 +167,17 @@ scene.add(checker);
 
 // simple grandstands with a colorful crowd along the outside of the straights
 const crowdColors = [0xff3b6b, 0xffc23d, 0x3de0ff, 0xffffff, 0x3dff8a, 0x9b7bff];
-const standGeo = new THREE.BoxGeometry(6, 3, 60);
+const standGeo = new THREE.BoxGeometry(6, 3, 140);
 const standMat = new THREE.MeshLambertMaterial({ color: 0x9aa3b5 });
 const dotGeo = new THREE.BoxGeometry(0.8, 0.8, 0.8);
-const crowdCount = 2 * 4 * 60;
+const crowdCount = 2 * 4 * 140;
 const crowd = new THREE.InstancedMesh(dotGeo, new THREE.MeshLambertMaterial(), crowdCount);
 let ci = 0; const m4 = new THREE.Matrix4(), tmpCol = new THREE.Color();
 for (const side of [1, -1]) {
   const sx = side * (R + HALF_W + 7);
   const stand = new THREE.Mesh(standGeo, standMat); stand.position.set(sx, 1.5, 0); scene.add(stand);
-  for (let row = 0; row < 4; row++) for (let k = 0; k < 60; k++) {
-    m4.makeTranslation(sx + side * (row * 1.3 - 2), 3.4 + row * 0.6, -29 + k);
+  for (let row = 0; row < 4; row++) for (let k = 0; k < 140; k++) {
+    m4.makeTranslation(sx + side * (row * 1.3 - 2), 3.4 + row * 0.6, -69 + k);
     crowd.setMatrixAt(ci, m4); crowd.setColorAt(ci, tmpCol.setHex(crowdColors[(row * 7 + k * 3) % crowdColors.length])); ci++;
   }
 }
@@ -188,7 +190,7 @@ scene.add(crowd);
 const loader = new GLTFLoader();
 const CAR_LENGTH = 4.2;
 
-async function loadCarModel(name) {
+async function loadCarModel(name, paint) {
   const gltf = await loader.loadAsync("cars/" + name + ".glb");
   gltf.scene.updateMatrixWorld(true);
   const parts = [];
@@ -200,7 +202,10 @@ async function loadCarModel(name) {
     keep.setAttribute("position", g.getAttribute("position"));
     keep.setAttribute("normal", g.getAttribute("normal"));
     // bake the part's color into the geometry so the whole car is one piece
-    const c = (o.material && o.material.color) ? o.material.color : new THREE.Color(0xffffff);
+    let c = (o.material && o.material.color) ? o.material.color : new THREE.Color(0xffffff);
+    // repaint the car body in this tier's color (wheel rims keep their color)
+    const isBody = !/wheel/i.test(o.name + (o.parent ? o.parent.name : ""));
+    if (isBody && o.material && /^paint/i.test(o.material.name)) c = new THREE.Color(paint);
     const n = keep.getAttribute("position").count, cols = new Float32Array(n * 3);
     for (let i = 0; i < n; i++) { cols[i * 3] = c.r; cols[i * 3 + 1] = c.g; cols[i * 3 + 2] = c.b; }
     keep.setAttribute("color", new THREE.BufferAttribute(cols, 3));
@@ -214,6 +219,7 @@ async function loadCarModel(name) {
   merged.translate(-(bb.min.x + bb.max.x) / 2, -bb.min.y, -(bb.min.z + bb.max.z) / 2);
   merged.scale(k, k, k);
   if (size.x > size.z) merged.rotateY(Math.PI / 2);   // make sure the car points along +z
+  merged.rotateY(Math.PI);                             // the models face backwards – turn them around
   return merged;
 }
 
@@ -230,7 +236,7 @@ scene.add(shadowMesh);
    ========================================================= */
 let cars = [];
 const tmp = {}, dummy = new THREE.Object3D();
-const LANES = 7;
+const LANES = 9;
 
 function makeCars(n) {
   cars = [];
@@ -295,7 +301,7 @@ function update(dt, now) {
 //   middle = behind the car in the middle of the pack · rear = behind the last car · orbit = slow 360° flight
 let camMode = "overview";
 let ranked = [];                       // cars sorted 1st → last (updated a few times per second)
-const camPos = new THREE.Vector3(0, 150, 235), camLook = new THREE.Vector3(0, 0, -22);
+const camPos = new THREE.Vector3(0, 225, 345), camLook = new THREE.Vector3(0, 0, -45);
 const wantPos = new THREE.Vector3(), wantLook = new THREE.Vector3();
 const p1 = {}, p2 = {};
 
@@ -312,8 +318,8 @@ function updateCamera(dt, now) {
   if (!ranked.length) rankCars();
   let ease = 0.06;
   if (camMode === "overview") {
-    wantPos.set(0, portrait ? 150 : 110, portrait ? 235 : 170);
-    wantLook.set(0, 0, portrait ? -22 : -10);
+    wantPos.set(0, portrait ? 225 : 170, portrait ? 345 : 265);
+    wantLook.set(0, 0, portrait ? -45 : -20);
   } else if (camMode === "leader") {
     chase(ranked[0], 26, 16);
   } else if (camMode === "front") {
@@ -327,7 +333,7 @@ function updateCamera(dt, now) {
     chase(ranked[ranked.length - 1], 24, 14);
   } else if (camMode === "orbit") {
     const a = now / 9000;
-    wantPos.set(Math.sin(a) * 170, 70, Math.cos(a) * 200);
+    wantPos.set(Math.sin(a) * 230, 90, Math.cos(a) * 300);
     wantLook.set(0, 0, 0);
     ease = 0.04;
   }
@@ -340,7 +346,7 @@ function updateCamera(dt, now) {
 /* =========================================================
    PART 6: Leaderboard + FPS
    ========================================================= */
-const TIER_ICON = ["⚪", "🟡", "🟤", "🔵", "⚫", "🟣", "🟠", "🔴", "🌟"];
+const TIER_ICON = TIERS.map(t => t.icon);
 function showBoard() {
   const top = [...cars].sort((a, b) => b.s - a.s).slice(0, 5);
   document.getElementById("board").innerHTML = top.map((c, i) =>
@@ -363,7 +369,7 @@ function countFps(now) {
 /* =========================================================
    PART 7: Start
    ========================================================= */
-const geos = await Promise.all(TIERS.map(t => loadCarModel(t.model)));
+const geos = await Promise.all(TIERS.map(t => loadCarModel(t.model, t.paint)));
 geos.forEach((g, t) => {
   const mesh = new THREE.InstancedMesh(g, carMaterial, MAX_CARS);
   mesh.count = 0;
