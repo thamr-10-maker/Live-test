@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>3D Race – Test Track</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; overflow: hidden; background: #87b9e0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+  canvas { display: block; width: 100%; height: 100%; }
+  #hud { position: absolute; top: 0; left: 0; right: 0; padding: calc(8px + env(safe-area-inset-top)) 10px 8px; pointer-events: none; color: #fff; }
+  #fps { display: inline-block; background: rgba(0,0,0,.55); padding: 4px 10px; border-radius: 12px; font-size: 13px; font-weight: 700; }
+  #board { margin-top: 8px; background: rgba(0,0,0,.45); border-radius: 12px; padding: 6px 10px; font-size: 13px; line-height: 1.6; width: fit-content; min-width: 140px; }
+  #controls { position: absolute; left: 0; right: 0; bottom: 0; padding: 8px 8px calc(12px + env(safe-area-inset-bottom)); display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; background: rgba(0,0,0,.35); }
+  #controls button { padding: 11px 0; border: 0; border-radius: 10px; font-size: 14px; font-weight: 700; background: rgba(255,255,255,.92); color: #222; }
+  #controls button.on { background: #ff3b6b; color: #fff; }
+  #loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 18px; font-weight: 700; background: #1d2a3a; }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div id="loading">Loading cars… 🏎️</div>
+<div id="hud">
+  <span id="fps">… FPS</span>
+  <div id="board"></div>
+</div>
+<div id="controls">
+  <button data-n="100" class="on">100</button>
+  <button data-n="300">300</button>
+  <button data-n="500">500</button>
+  <button id="cam-btn">🎥</button>
+  <button id="boost-btn">🔥</button>
+</div>
+
+<script type="module">
+import * as THREE from "three";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
+
+/* =========================================================
+   SETTINGS
+   ========================================================= */
+// Car tiers: cheapest first. "speed" = how much each like pushes this car.
+const TIERS = [
+  { model: "sedan",       speed: 1.00 },
+  { model: "taxi",        speed: 1.10 },
+  { model: "truck",       speed: 1.20 },
+  { model: "police",      speed: 1.30 },
+  { model: "suv",         speed: 1.45 },
+  { model: "suvLuxury",   speed: 1.60 },
+  { model: "sedanSports", speed: 1.80 },
+  { model: "race",        speed: 2.05 },
+  { model: "raceFuture",  speed: 2.40 },
+];
+const MAX_CARS = 500;
+
+/* =========================================================
+   PART 1: Scene, camera, light
+   ========================================================= */
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.prepend(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x87b9e0);
+scene.fog = new THREE.Fog(0x87b9e0, 260, 520);
+
+const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 1, 1000);
+scene.add(new THREE.HemisphereLight(0xffffff, 0x8a7a5a, 1.6));
+const sun = new THREE.DirectionalLight(0xffffff, 1.6);
+sun.position.set(60, 120, 40);
+scene.add(sun);
+
+window.addEventListener("resize", () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+/* =========================================================
+   PART 2: The track (an oval: two straights + two half circles)
+   ========================================================= */
+const L = 110;          // length of each straight
+const R = 34;           // radius of the curves (to the middle of the track)
+const HALF_W = 11;      // half of the track width
+const LOOP = 2 * L + 2 * Math.PI * R;   // length of one lap
+
+// Where is a point on the track? s = distance along the lap, d = sideways offset (+ = outside)
+function trackAt(s, d, out) {
+  s = ((s % LOOP) + LOOP) % LOOP;
+  let x, z, dx, dz;
+  if (s < L) {                                   // right straight, going away from camera
+    x = R + d; z = L / 2 - s; dx = 0; dz = -1;
+  } else if (s < L + Math.PI * R) {              // far curve
+    const t = (s - L) / R;
+    x = (R + d) * Math.cos(t); z = -L / 2 - (R + d) * Math.sin(t);
+    dx = -Math.sin(t); dz = -Math.cos(t);
+  } else if (s < 2 * L + Math.PI * R) {          // left straight, coming back
+    x = -(R + d); z = -L / 2 + (s - L - Math.PI * R); dx = 0; dz = 1;
+  } else {                                       // near curve
+    const t = (s - 2 * L - Math.PI * R) / R;
+    x = -(R + d) * Math.cos(t); z = L / 2 + (R + d) * Math.sin(t);
+    dx = Math.sin(t); dz = Math.cos(t);
+  }
+  out.x = x; out.z = z; out.yaw = Math.atan2(dx, dz);
+  return out;
+}
+
+// Builds a flat strip that follows the track between two side offsets
+function stripMesh(d1, d2, y, color, dashEvery) {
+  const pos = [], idx = [], col = [];
+  const steps = 360, a = {}, b = {};
+  const c1 = new THREE.Color(color), c2 = new THREE.Color(0xffffff);
+  for (let i = 0; i <= steps; i++) {
+    const s = (i / steps) * LOOP;
+    trackAt(s, d1, a); trackAt(s, d2, b);
+    pos.push(a.x, y, a.z, b.x, y, b.z);
+    const c = dashEvery && Math.floor(i / dashEvery) % 2 ? c2 : c1;
+    col.push(c.r, c.g, c.b, c.r, c.g, c.b);
+    if (i < steps) { const k = i * 2; idx.push(k, k + 1, k + 2, k + 1, k + 3, k + 2); }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute("color", new THREE.Float32BufferAttribute(col, 3));
+  g.setIndex(idx); g.computeVertexNormals();
+  return new THREE.Mesh(g, new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }));
+}
+
+// ground (sand) and infield (grass)
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(900, 900), new THREE.MeshLambertMaterial({ color: 0xdcc59a }));
+ground.rotation.x = -Math.PI / 2; ground.position.y = -0.05; scene.add(ground);
+const infield = stripMesh(-R + 0.5, -HALF_W - 1, 0.0, 0x6fae4f); scene.add(infield);
+scene.add(stripMesh(-HALF_W, HALF_W, 0.02, 0x3d4049));                 // asphalt
+scene.add(stripMesh(-HALF_W - 1.4, -HALF_W, 0.03, 0xd8392f, 3));        // inner curb (red/white)
+scene.add(stripMesh(HALF_W, HALF_W + 1.4, 0.03, 0xd8392f, 3));          // outer curb
+for (const d of [-HALF_W / 2, 0, HALF_W / 2]) scene.add(stripMesh(d - 0.15, d + 0.15, 0.04, 0x3d4049, 2)); // lane dashes
+
+// start / finish line (checkered)
+const checker = new THREE.Group();
+for (let i = 0; i < 22; i++) for (let j = 0; j < 2; j++) {
+  const sq = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ color: (i + j) % 2 ? 0xffffff : 0x111111 }));
+  sq.rotation.x = -Math.PI / 2; sq.position.set(R - HALF_W + 0.5 + i, 0.05, L / 2 - 2 + j);
+  checker.add(sq);
+}
+scene.add(checker);
+
+// simple grandstands with a colorful crowd along the outside of the straights
+const crowdColors = [0xff3b6b, 0xffc23d, 0x3de0ff, 0xffffff, 0x3dff8a, 0x9b7bff];
+const standGeo = new THREE.BoxGeometry(6, 3, 60);
+const standMat = new THREE.MeshLambertMaterial({ color: 0x9aa3b5 });
+const dotGeo = new THREE.BoxGeometry(0.8, 0.8, 0.8);
+const crowdCount = 2 * 4 * 60;
+const crowd = new THREE.InstancedMesh(dotGeo, new THREE.MeshLambertMaterial(), crowdCount);
+let ci = 0; const m4 = new THREE.Matrix4(), tmpCol = new THREE.Color();
+for (const side of [1, -1]) {
+  const sx = side * (R + HALF_W + 7);
+  const stand = new THREE.Mesh(standGeo, standMat); stand.position.set(sx, 1.5, 0); scene.add(stand);
+  for (let row = 0; row < 4; row++) for (let k = 0; k < 60; k++) {
+    m4.makeTranslation(sx + side * (row * 1.3 - 2), 3.4 + row * 0.6, -29 + k);
+    crowd.setMatrixAt(ci, m4); crowd.setColorAt(ci, tmpCol.setHex(crowdColors[(row * 7 + k * 3) % crowdColors.length])); ci++;
+  }
+}
+scene.add(crowd);
+
+/* =========================================================
+   PART 3: Load the cars and turn each model into ONE fast "instanced" mesh
+   (the phone draws all cars of the same model in one go)
+   ========================================================= */
+const loader = new GLTFLoader();
+const CAR_LENGTH = 4.2;
+
+async function loadCarModel(name) {
+  const gltf = await loader.loadAsync("cars/" + name + ".glb");
+  gltf.scene.updateMatrixWorld(true);
+  const parts = [];
+  gltf.scene.traverse(o => {
+    if (!o.isMesh) return;
+    let g = o.geometry.clone().applyMatrix4(o.matrixWorld);
+    g = g.index ? g.toNonIndexed() : g;
+    const keep = new THREE.BufferGeometry();
+    keep.setAttribute("position", g.getAttribute("position"));
+    keep.setAttribute("normal", g.getAttribute("normal"));
+    // bake the part's color into the geometry so the whole car is one piece
+    const c = (o.material && o.material.color) ? o.material.color : new THREE.Color(0xffffff);
+    const n = keep.getAttribute("position").count, cols = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) { cols[i * 3] = c.r; cols[i * 3 + 1] = c.g; cols[i * 3 + 2] = c.b; }
+    keep.setAttribute("color", new THREE.BufferAttribute(cols, 3));
+    parts.push(keep);
+  });
+  const merged = mergeGeometries(parts);
+  // scale to the same length and stand it on the ground
+  merged.computeBoundingBox();
+  const bb = merged.boundingBox, size = new THREE.Vector3(); bb.getSize(size);
+  const k = CAR_LENGTH / Math.max(size.x, size.z);
+  merged.translate(-(bb.min.x + bb.max.x) / 2, -bb.min.y, -(bb.min.z + bb.max.z) / 2);
+  merged.scale(k, k, k);
+  if (size.x > size.z) merged.rotateY(Math.PI / 2);   // make sure the car points along +z
+  return merged;
+}
+
+const carMaterial = new THREE.MeshLambertMaterial({ vertexColors: true });
+const tierMeshes = [];      // one InstancedMesh per car model
+const shadowMesh = new THREE.InstancedMesh(
+  new THREE.CircleGeometry(1, 16).rotateX(-Math.PI / 2).scale(1.3, 1, 2.5),
+  new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.28, depthWrite: false }),
+  MAX_CARS);
+scene.add(shadowMesh);
+
+/* =========================================================
+   PART 4: Cars and racing (test: random viewers pressing like)
+   ========================================================= */
+let cars = [];
+const tmp = {}, dummy = new THREE.Object3D();
+const LANES = 7;
+
+function makeCars(n) {
+  cars = [];
+  for (let i = 0; i < n; i++) {
+    // more cheap cars than expensive ones, like a real crowd
+    const r = Math.random();
+    const tier = r < .45 ? 0 : r < .6 ? 1 : r < .7 ? 2 : r < .78 ? 3 : r < .85 ? 4 : r < .9 ? 5 : r < .95 ? 6 : r < .98 ? 7 : 8;
+    const row = Math.floor(i / LANES), lane = i % LANES;
+    cars.push({
+      tier,
+      s: -row * 6.5,                                     // starting grid behind the line
+      d: -HALF_W + 1.8 + lane * ((HALF_W * 2 - 3.6) / (LANES - 1)),
+      speed: 0,
+      gas: 0,                                            // "likes" waiting to be used
+      name: "Viewer " + (i + 1),
+    });
+  }
+  // grow the instanced meshes to fit
+  for (let t = 0; t < TIERS.length; t++) {
+    const count = cars.filter(c => c.tier === t).length;
+    tierMeshes[t].count = count;
+  }
+  shadowMesh.count = n;
+}
+
+function fakeLikes(dt) {
+  for (const c of cars) {
+    if (Math.random() < 0.05 * dt) c.gas += 2 + Math.random() * 10;
+  }
+}
+
+let boostUntil = 0;
+function update(dt, now) {
+  fakeLikes(dt);
+  for (const c of cars) {
+    const use = Math.min(c.gas, 0.6 * dt);              // gas used per frame
+    c.gas -= use;
+    const target = (use > 0 ? 0.55 : 0.12) * TIERS[c.tier].speed * (now < boostUntil ? 1.8 : 1);
+    c.speed += (target - c.speed) * 0.05 * dt;
+    c.s += c.speed * dt;
+  }
+  const counters = new Array(TIERS.length).fill(0);
+  cars.forEach((c, i) => {
+    trackAt(c.s, c.d, tmp);
+    dummy.position.set(tmp.x, 0, tmp.z);
+    dummy.rotation.set(0, tmp.yaw, 0);
+    dummy.updateMatrix();
+    const mesh = tierMeshes[c.tier];
+    mesh.setMatrixAt(counters[c.tier]++, dummy.matrix);
+    dummy.position.y = 0.06; dummy.updateMatrix();
+    shadowMesh.setMatrixAt(i, dummy.matrix);
+  });
+  for (const m of tierMeshes) m.instanceMatrix.needsUpdate = true;
+  shadowMesh.instanceMatrix.needsUpdate = true;
+}
+
+/* =========================================================
+   PART 5: Camera – overview of the whole track, or follow the leader
+   ========================================================= */
+let follow = false;
+const camPos = new THREE.Vector3(), camLook = new THREE.Vector3();
+function updateCamera(dt) {
+  const portrait = window.innerHeight > window.innerWidth;
+  if (!follow) {
+    camPos.set(0, portrait ? 150 : 110, portrait ? 235 : 170);   // tilted, like a TV camera in the stands
+    camLook.set(0, 0, portrait ? -22 : -10);
+  } else {
+    const leader = cars.reduce((a, b) => (b.s > a.s ? b : a), cars[0]);
+    trackAt(leader.s, 0, tmp);
+    const back = trackAt(leader.s - 28, 0, {});
+    camPos.lerp(new THREE.Vector3(back.x, 24, back.z), 0.08);
+    camLook.lerp(new THREE.Vector3(tmp.x, 0, tmp.z), 0.15);
+    camera.position.copy(camPos); camera.lookAt(camLook);
+    return;
+  }
+  camera.position.lerp(camPos, 0.1);
+  camera.lookAt(camLook);
+}
+
+/* =========================================================
+   PART 6: Leaderboard + FPS
+   ========================================================= */
+const TIER_ICON = ["⚪", "🟡", "🟤", "🔵", "⚫", "🟣", "🟠", "🔴", "🌟"];
+function showBoard() {
+  const top = [...cars].sort((a, b) => b.s - a.s).slice(0, 5);
+  document.getElementById("board").innerHTML = top.map((c, i) =>
+    (["🥇", "🥈", "🥉", "4", "5"][i]) + " " + TIER_ICON[c.tier] + " " + c.name).join("<br>");
+}
+setInterval(showBoard, 500);
+
+let frames = 0, fpsTime = performance.now();
+function countFps(now) {
+  frames++;
+  if (now - fpsTime > 1000) {
+    const fps = Math.round(frames * 1000 / (now - fpsTime));
+    const el = document.getElementById("fps");
+    el.textContent = fps + " FPS · " + cars.length + " cars";
+    el.style.background = fps >= 45 ? "rgba(20,140,60,.8)" : fps >= 28 ? "rgba(200,140,0,.85)" : "rgba(200,40,40,.85)";
+    frames = 0; fpsTime = now;
+  }
+}
+
+/* =========================================================
+   PART 7: Start
+   ========================================================= */
+const geos = await Promise.all(TIERS.map(t => loadCarModel(t.model)));
+geos.forEach((g, t) => {
+  const mesh = new THREE.InstancedMesh(g, carMaterial, MAX_CARS);
+  mesh.count = 0;
+  mesh.frustumCulled = false;
+  scene.add(mesh);
+  tierMeshes[t] = mesh;
+});
+shadowMesh.frustumCulled = false;
+makeCars(100);
+document.getElementById("loading").remove();
+
+let last = performance.now();
+function loop(now) {
+  const dt = Math.min(3, (now - last) / 16.67); last = now;
+  update(dt, now);
+  updateCamera(dt);
+  renderer.render(scene, camera);
+  countFps(now);
+  requestAnimationFrame(loop);
+}
+camera.position.set(0, 150, 235);
+requestAnimationFrame(loop);
+
+document.querySelectorAll("[data-n]").forEach(b => b.onclick = () => {
+  document.querySelectorAll("[data-n]").forEach(x => x.classList.remove("on"));
+  b.classList.add("on");
+  makeCars(Number(b.dataset.n));
+});
+document.getElementById("cam-btn").onclick = (e) => { follow = !follow; e.target.classList.toggle("on", follow); };
+document.getElementById("boost-btn").onclick = () => { boostUntil = performance.now() + 3000; };
+window.__test = { setFollow: v => follow = v, makeCars };
+</script>
+</body>
+</html>
