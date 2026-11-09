@@ -1,0 +1,14 @@
+{
+  "name": "Heart Jar",
+  "short_name": "Heart Jar",
+  "start_url": "./jar.html",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "portrait",
+  "background_color": "#0d0b14",
+  "theme_color": "#0d0b14",
+  "icons": [
+    { "src": "jar-icon-180.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "jar-icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

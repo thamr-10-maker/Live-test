@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Heart Jar">
+<meta name="theme-color" content="#0d0b14">
+<link rel="manifest" href="jar-manifest.json">
+<link rel="apple-touch-icon" href="jar-icon-180.png">
+<title>Heart Jar – TikTok LIVE Game</title>
+<style>
+  :root {
+    --bg: #0d0b14; --card: #1a1726; --text: #f4f1ff; --muted: #9a93b8;
+    --pink: #ff3b6b; --gold: #ffc23d; --green: #3dff8a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    background: radial-gradient(ellipse at 50% 55%, #3a1f45 0%, var(--bg) 70%);
+    color: var(--text); font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    overflow: hidden;
+  }
+
+  /* ---------- Setup screen (only the streamer sees this) ---------- */
+  #setup { padding: calc(24px + env(safe-area-inset-top)) 20px 24px; max-width: 480px; margin: 0 auto; height: 100%; overflow-y: auto; }
+  #setup h1 { font-size: 26px; margin-bottom: 6px; }
+  #setup p { color: var(--muted); font-size: 14px; margin-bottom: 14px; line-height: 1.5; }
+  label { display: block; font-size: 13px; color: var(--muted); margin: 14px 0 6px; }
+  input { width: 100%; padding: 14px; font-size: 16px; border-radius: 12px; border: 1px solid #332d4a; background: var(--card); color: var(--text); }
+  button { font-size: 16px; font-weight: 700; padding: 14px; border: 0; border-radius: 12px; cursor: pointer; width: 100%; }
+  .btn-main { background: var(--pink); color: white; margin-top: 18px; }
+  .btn-soft { background: var(--card); color: var(--text); margin-top: 10px; border: 1px solid #332d4a; }
+
+  /* ---------- Game screen ---------- */
+  #game { display: none; height: 100%; position: relative; }
+  #stage { position: absolute; left: 0; right: 0; top: 0; bottom: 0; display: flex; align-items: flex-end; justify-content: center; }
+  body.testing #stage { bottom: 74px; }
+  canvas { width: 100%; height: auto; max-height: 100%; display: block; }
+
+  #hud { position: absolute; top: 0; left: 0; right: 0; padding: calc(8px + env(safe-area-inset-top)) 12px 8px; pointer-events: none; }
+  #top-row { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--muted); }
+  #room { display: flex; align-items: center; gap: 8px; }
+  #status .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #666; margin-right: 5px; }
+  #status.on .dot { background: var(--green); }
+  #status.err .dot { background: var(--pink); }
+  #viewers { font-size: 14px; font-weight: 800; color: var(--text); }
+  #menu-btn { pointer-events: auto; width: auto; padding: 5px 12px; font-size: 13px; background: var(--card); color: var(--muted); border: 1px solid #332d4a; border-radius: 20px; }
+
+  /* Chat, joins and follows */
+  #feed { margin-top: 10px; display: flex; flex-direction: column; gap: 5px; align-items: flex-start; }
+  .feed-line {
+    max-width: 92%; background: rgba(26,23,38,.78); border: 1px solid #2f2847;
+    padding: 6px 11px; border-radius: 14px; font-size: 14px; line-height: 1.35;
+    animation: feedIn .3s ease-out; transition: opacity .6s; overflow-wrap: anywhere;
+  }
+  .feed-line .n { font-weight: 700; color: #8fd3ff; margin: 0 4px; }
+  .feed-line.join { color: var(--muted); font-size: 13px; padding: 4px 10px; }
+  .feed-line.join .n { color: var(--muted); }
+  .feed-line.follow { border-color: var(--green); }
+  .feed-line.follow .n { color: var(--green); }
+  .feed-line.gift { border-color: var(--gold); }
+  .feed-line.gift .n { color: var(--gold); }
+  .feed-line.gone { opacity: 0; }
+  @keyframes feedIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+  #big-alert {
+    position: absolute; left: 50%; top: 26%; transform: translate(-50%, -50%) scale(.6);
+    background: var(--pink); color: white; padding: 14px 22px; border-radius: 20px;
+    font-size: 28px; font-weight: 800; text-align: center; opacity: 0; pointer-events: none;
+    transition: all .3s; max-width: 92%; box-shadow: 0 10px 50px rgba(255,59,107,.6); white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis;
+  }
+  #big-alert.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+
+  #test-bar {
+    position: absolute; bottom: 0; left: 0; right: 0; padding: 6px 8px calc(14px + env(safe-area-inset-bottom));
+    background: rgba(13,11,20,.95); border-top: 1px solid #2a2440;
+    display: none; grid-template-columns: repeat(7, 1fr); gap: 4px;
+  }
+  body.testing #test-bar { display: grid; }
+  #test-bar button { font-size: 13px; padding: 10px 0; background: var(--card); color: var(--text); border: 1px solid #332d4a; border-radius: 10px; font-weight: 700; }
+
+  #menu { position: absolute; inset: 0; background: rgba(13,11,20,.9); display: none; align-items: center; justify-content: center; }
+  #menu > div { width: 80%; max-width: 320px; }
+</style>
+</head>
+<body>
+
+<!-- ================= SETUP SCREEN ================= -->
+<div id="setup">
+  <h1>🫙 Heart Jar</h1>
+  <p>Every like drops hearts into the jar. When the jar is full, the ball climbs out. Viewers never see a number, only the jar filling up.</p>
+
+  <label for="username">TikTok username (without @)</label>
+  <input id="username" placeholder="example: ahmed_live" autocomplete="off" autocapitalize="off">
+
+  <label for="apikey">Euler Stream API key</label>
+  <input id="apikey" placeholder="paste your key here" autocomplete="off" autocapitalize="off">
+
+  <button class="btn-main" id="connect-btn">Start game on LIVE</button>
+  <button class="btn-soft" id="test-btn">Try test mode</button>
+</div>
+
+<!-- ================= GAME SCREEN ================= -->
+<div id="game">
+  <div id="stage"><canvas id="c"></canvas></div>
+
+  <div id="hud">
+    <div id="top-row">
+      <div id="room">
+        <div id="status"><span class="dot"></span><span id="status-text"></span></div>
+        <span id="viewers"></span>
+      </div>
+      <button id="menu-btn">☰</button>
+    </div>
+    <div id="feed"></div>
+  </div>
+
+  <div id="big-alert"></div>
+  <div id="test-bar"></div>
+
+  <div id="menu">
+    <div>
+      <button class="btn-soft" id="fullscreen-btn">⛶ Full screen</button>
+      <button class="btn-soft" id="reset-btn">🔄 Empty the jar</button>
+      <button class="btn-soft" id="toggle-test-btn">🧪 Show / hide test buttons</button>
+      <button class="btn-soft" id="disconnect-btn">✕ Disconnect</button>
+      <button class="btn-main" id="close-menu-btn">Back to game</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =========================================================
+   SETTINGS – change these to tune the game
+   ========================================================= */
+const TARGET_LIKES = 10000;                          // likes needed to fill the jar (never shown)
+const PHRASE_AR = "تقدرون تطلّعون الكورة؟";          // message above the jar (Arabic)
+const PHRASE_EN = "Can you get the ball out?";       // message above the jar (English)
+const RESET_SECONDS = 10;                            // after the ball escapes, the jar empties after this
+
+/* =========================================================
+   PART 1: Canvas and jar shape
+   ========================================================= */
+const W = 400, H = 720;
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d");
+const DPR = Math.min(window.devicePixelRatio || 1, 2);
+canvas.width = W * DPR; canvas.height = H * DPR;
+ctx.scale(DPR, DPR);
+
+const GROUND_Y = 705;
+// The jar: wide body, rounded bottom, narrower neck and a rim at the top
+const JAR = {
+  cx: W / 2,
+  bottom: 690,      // inside bottom
+  bodyTop: 300,     // where the body starts curving into the shoulder
+  neckTop: 235,     // top of the neck (the opening)
+  bodyHalf: 150,    // half width of the body
+  neckHalf: 95,     // half width of the neck
+};
+
+// Draws the inside shape of the jar as a path (used for clipping the hearts)
+function jarPath() {
+  const { cx, bottom, bodyTop, neckTop, bodyHalf, neckHalf } = JAR;
+  ctx.beginPath();
+  ctx.moveTo(cx - neckHalf, neckTop);
+  ctx.lineTo(cx - neckHalf, bodyTop - 30);
+  ctx.quadraticCurveTo(cx - bodyHalf, bodyTop - 20, cx - bodyHalf, bodyTop + 30);
+  ctx.lineTo(cx - bodyHalf, bottom - 40);
+  ctx.quadraticCurveTo(cx - bodyHalf, bottom, cx - bodyHalf + 40, bottom);
+  ctx.lineTo(cx + bodyHalf - 40, bottom);
+  ctx.quadraticCurveTo(cx + bodyHalf, bottom, cx + bodyHalf, bottom - 40);
+  ctx.lineTo(cx + bodyHalf, bodyTop + 30);
+  ctx.quadraticCurveTo(cx + bodyHalf, bodyTop - 20, cx + neckHalf, bodyTop - 30);
+  ctx.lineTo(cx + neckHalf, neckTop);
+}
+
+// Pre-draw a big block of little hearts once (drawing thousands every frame would be slow)
+const heartsImg = document.createElement("canvas");
+(function makeHeartsImage() {
+  const w = JAR.bodyHalf * 2 + 20, h = JAR.bottom - JAR.neckTop + 40;
+  heartsImg.width = w * DPR; heartsImg.height = h * DPR;
+  const g = heartsImg.getContext("2d");
+  g.scale(DPR, DPR);
+  g.textAlign = "center"; g.textBaseline = "middle";
+  const kinds = ["❤️", "💖", "💗", "💕", "❤️", "💓"];
+  let seed = 7;
+  const rand = () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
+  for (let y = h; y > -10; y -= 11) {
+    for (let x = -6; x < w + 10; x += 13) {
+      const size = 13 + rand() * 7;
+      g.save();
+      g.translate(x + (rand() - .5) * 8, y + (rand() - .5) * 6);
+      g.rotate((rand() - .5) * 0.9);
+      g.font = size + "px serif";
+      g.fillText(kinds[Math.floor(rand() * kinds.length)], 0, 0);
+      g.restore();
+    }
+  }
+})();
+
+/* =========================================================
+   PART 2: Game state
+   ========================================================= */
+function load(k) { try { return localStorage.getItem(k) || ""; } catch (e) { return ""; } }
+function save(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+
+// Likes are saved on this phone, so if the page reloads during a live, the jar keeps its hearts
+let likes = Number(load("jar_likes")) || 0;
+let shownFill = Math.min(1, likes / TARGET_LIKES);   // smooth fill level (0 = empty, 1 = full)
+let state = "filling";        // "filling" → "escaping" → "out" → "draining"
+let lastLiker = "";
+const falling = [];           // hearts falling into the jar
+const confetti = [];
+const ball = { x: JAR.cx, y: 0, vx: 0, vy: 0, r: 15 };
+
+function fillTarget() { return Math.min(1, likes / TARGET_LIKES); }
+
+// Height of the heart surface for a fill level (0..1). The top of the neck is the very top.
+function surfaceY(fill) {
+  return JAR.bottom - fill * (JAR.bottom - JAR.neckTop);
+}
+
+/* =========================================================
+   PART 3: Likes
+   ========================================================= */
+function onLikes(name, amount) {
+  if (state !== "filling") return;
+  likes += amount;
+  lastLiker = name;
+  if (Math.random() < 0.15 || amount > 5) save("jar_likes", likes);
+  // drop a few hearts from above the jar (max 4 per message so the phone stays fast)
+  const drops = Math.min(amount, 4);
+  for (let i = 0; i < drops; i++) {
+    falling.push({
+      x: JAR.cx + (Math.random() - .5) * JAR.neckHalf * 1.6,
+      y: JAR.neckTop - 120 - Math.random() * 80,
+      vy: 2 + Math.random() * 2,
+      size: 16 + Math.random() * 10,
+      emoji: ["❤️", "💖", "💗", "💕"][Math.floor(Math.random() * 4)],
+      spin: (Math.random() - .5) * 0.2, angle: 0
+    });
+  }
+  if (falling.length > 60) falling.splice(0, falling.length - 60);
+}
+
+function resetJar() {
+  likes = 0; save("jar_likes", 0);
+  state = "filling";
+  falling.length = 0; confetti.length = 0;
+}
+
+/* =========================================================
+   PART 4: Drawing every frame
+   ========================================================= */
+function drawJarGlass() {
+  const { cx, neckTop, neckHalf } = JAR;
+  // glass body
+  ctx.save();
+  jarPath();
+  ctx.fillStyle = "rgba(180, 210, 255, 0.06)";
+  ctx.fill();
+  ctx.lineWidth = 6;
+  ctx.strokeStyle = "rgba(200, 225, 255, 0.55)";
+  ctx.stroke();
+  // shine
+  ctx.beginPath();
+  ctx.moveTo(cx - JAR.bodyHalf + 22, JAR.bodyTop + 40);
+  ctx.lineTo(cx - JAR.bodyHalf + 22, JAR.bottom - 70);
+  ctx.lineWidth = 8; ctx.lineCap = "round";
+  ctx.strokeStyle = "rgba(255,255,255,0.12)";
+  ctx.stroke();
+  // rim
+  ctx.fillStyle = "rgba(200, 225, 255, 0.75)";
+  ctx.beginPath();
+  ctx.roundRect(cx - neckHalf - 10, neckTop - 14, (neckHalf + 10) * 2, 16, 6);
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawHearts(fill, now) {
+  if (fill <= 0) return;
+  const top = surfaceY(fill);
+  ctx.save();
+  jarPath(); ctx.clip();
+  // wavy top edge of the hearts
+  ctx.beginPath();
+  ctx.moveTo(0, H);
+  for (let x = 0; x <= W; x += 10) ctx.lineTo(x, top + Math.sin(x / 22 + now / 400) * 4);
+  ctx.lineTo(W, H);
+  ctx.closePath();
+  ctx.clip();
+  ctx.drawImage(heartsImg, JAR.cx - JAR.bodyHalf - 10, JAR.neckTop - 20,
+                heartsImg.width / DPR, heartsImg.height / DPR);
+  // soft glow at the top of the pile
+  const grad = ctx.createLinearGradient(0, top - 10, 0, top + 40);
+  grad.addColorStop(0, "rgba(255,120,160,0.35)"); grad.addColorStop(1, "rgba(255,120,160,0)");
+  ctx.fillStyle = grad; ctx.fillRect(0, top - 10, W, 50);
+  ctx.restore();
+}
+
+function drawBall(now) {
+  // when the jar is almost full, the ball shakes with excitement
+  const excite = state === "filling" ? Math.max(0, (shownFill - 0.85) / 0.15) : 0;
+  const shakeX = excite ? Math.sin(now / 35) * 3 * excite : 0;
+  const x = ball.x + shakeX, y = ball.y;
+  ctx.save();
+  ctx.shadowColor = "rgba(255,210,90," + (0.6 + excite * 0.4) + ")";
+  ctx.shadowBlur = 18 + excite * 20;
+  const g = ctx.createRadialGradient(x - 5, y - 6, 2, x, y, ball.r);
+  g.addColorStop(0, "#fffbe6"); g.addColorStop(0.45, "#ffd34d"); g.addColorStop(1, "#e08a00");
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(x, y, ball.r, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+
+function drawPhrase(now) {
+  const pulse = 1 + 0.035 * Math.sin(now / 320);
+  ctx.save();
+  ctx.translate(W / 2, 168);
+  ctx.scale(pulse, pulse);
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.shadowColor = "rgba(255,59,107,0.85)"; ctx.shadowBlur = 14;
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "800 26px system-ui, -apple-system, 'Segoe UI', Tahoma, sans-serif";
+  ctx.direction = "rtl";
+  ctx.fillText(PHRASE_AR, 0, -15);
+  ctx.direction = "ltr";
+  ctx.font = "700 18px system-ui, -apple-system, 'Segoe UI', sans-serif";
+  ctx.fillStyle = "#ffd6e0";
+  ctx.fillText(PHRASE_EN, 0, 16);
+  ctx.restore();
+}
+
+function burstConfetti(x, y) {
+  for (let i = 0; i < 60; i++) {
+    const a = Math.random() * Math.PI * 2, s = 3 + Math.random() * 7;
+    confetti.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 4, life: 1,
+      emoji: ["❤️", "💖", "✨", "🎉", "💗", "⭐"][Math.floor(Math.random() * 6)], size: 14 + Math.random() * 14 });
+  }
+}
+
+let lastFrame = performance.now();
+function frame(now) {
+  const dt = Math.min(2, (now - lastFrame) / 16.67);   // 1 = one normal frame
+  lastFrame = now;
+  ctx.clearRect(0, 0, W, H);
+
+  // ground
+  ctx.fillStyle = "#2a2140";
+  ctx.fillRect(0, GROUND_Y, W, H - GROUND_Y);
+
+  // move the fill level smoothly toward the real value
+  const target = state === "draining" ? 0 : fillTarget();
+  const speed = state === "draining" ? 0.006 : 0.02;
+  shownFill += (target - shownFill) * Math.min(1, speed * 3 * dt);
+  if (Math.abs(target - shownFill) < 0.0005) shownFill = target;
+
+  drawHearts(shownFill, now);
+
+  // falling hearts
+  const surf = surfaceY(shownFill);
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  for (let i = falling.length - 1; i >= 0; i--) {
+    const h = falling[i];
+    h.vy += 0.25 * dt; h.y += h.vy * dt; h.angle += h.spin * dt;
+    if (h.y >= surf - 4) { falling.splice(i, 1); continue; }
+    ctx.save(); ctx.translate(h.x, h.y); ctx.rotate(h.angle);
+    ctx.font = h.size + "px serif"; ctx.fillText(h.emoji, 0, 0); ctx.restore();
+  }
+
+  drawJarGlass();
+
+  // ball
+  if (state === "filling" || state === "draining") {
+    ball.x = JAR.cx;
+    const restY = surfaceY(shownFill) - ball.r + 2 + Math.sin(now / 300) * 1.5;
+    ball.y = restY;
+    if (state === "filling" && shownFill >= 0.999 && fillTarget() >= 1) startEscape();
+    if (state === "draining" && shownFill <= 0.001) { state = "filling"; }
+  } else if (state === "escaping" || state === "out") {
+    ball.vy += 0.35 * dt;
+    ball.x += ball.vx * dt; ball.y += ball.vy * dt;
+    if (ball.y > GROUND_Y - ball.r) {           // bounce on the ground
+      ball.y = GROUND_Y - ball.r;
+      ball.vy *= -0.35; ball.vx *= 0.2;     // lose speed on every bounce
+      if (Math.abs(ball.vy) < 1) { ball.vy = 0; ball.vx *= 0.8; }   // rolling slows down fast
+    }
+    if (ball.x > W - ball.r - 4) { ball.x = W - ball.r - 4; ball.vx = 0; }
+  }
+  drawBall(now);
+
+  // confetti
+  for (let i = confetti.length - 1; i >= 0; i--) {
+    const c = confetti[i];
+    c.vy += 0.2 * dt; c.x += c.vx * dt; c.y += c.vy * dt; c.life -= 0.008 * dt;
+    if (c.life <= 0) { confetti.splice(i, 1); continue; }
+    ctx.globalAlpha = Math.max(0, c.life);
+    ctx.font = c.size + "px serif"; ctx.fillText(c.emoji, c.x, c.y);
+  }
+  ctx.globalAlpha = 1;
+
+  if (state === "filling") drawPhrase(now);
+
+  requestAnimationFrame(frame);
+}
+
+function startEscape() {
+  state = "escaping";
+  // the ball pops up out of the opening and lands outside the jar
+  ball.x = JAR.cx; ball.y = JAR.neckTop - ball.r;
+  ball.vx = 2.1; ball.vy = -8;
+  burstConfetti(JAR.cx, JAR.neckTop);
+  setTimeout(() => burstConfetti(W / 2, 300), 600);
+  const a = document.getElementById("big-alert");
+  a.textContent = "🏆 " + (lastLiker || "") + " 🎉";
+  a.classList.add("show");
+  setTimeout(() => a.classList.remove("show"), 5000);
+  setTimeout(() => { state = "out"; }, 1500);
+  setTimeout(() => { likes = 0; save("jar_likes", 0); state = "draining"; }, RESET_SECONDS * 1000);
+}
+
+/* =========================================================
+   PART 5: Chat / joins / follows feed + viewer count
+   ========================================================= */
+const FEED_MAX = 5, FEED_SECONDS = 10;
+let lastJoinTime = 0;
+
+function addFeed(kind, icon, name, text) {
+  const feed = document.getElementById("feed");
+  const line = document.createElement("div");
+  line.className = "feed-line " + kind;
+  line.dir = "auto";
+  line.appendChild(document.createTextNode(icon));
+  const n = document.createElement("span"); n.className = "n"; n.textContent = name;
+  line.appendChild(n);
+  if (text) line.appendChild(document.createTextNode(text));
+  feed.appendChild(line);
+  while (feed.children.length > FEED_MAX) feed.firstChild.remove();
+  setTimeout(() => line.classList.add("gone"), FEED_SECONDS * 1000);
+  setTimeout(() => line.remove(), FEED_SECONDS * 1000 + 700);
+}
+function onChat(name, text) { if (text && text.trim()) addFeed("chat", "💬", name, text); }
+function onFollow(name) { addFeed("follow", "➕", name, ""); }
+function onJoin(name) {
+  const now = Date.now();
+  if (now - lastJoinTime < 1000) return;   // busy lives: max one join per second
+  lastJoinTime = now;
+  addFeed("join", "👋", name, "");
+}
+function onRoomInfo(data) {
+  const count = Number(data.viewerCount || data.totalUser || 0);
+  if (count) document.getElementById("viewers").textContent = "👁 " + count;
+}
+
+function setStatus(text, kind) {
+  document.getElementById("status").className = kind || "";
+  document.getElementById("status-text").textContent = text;
+}
+
+/* =========================================================
+   PART 6: Reading TikTok messages
+   ========================================================= */
+function nameOf(user) { return (user && (user.nickname || user.uniqueId)) || "?"; }
+
+function handleEvent(type, data) {
+  if (!type || !data) return;
+  if (type.includes("RoomUserSeqMessage")) onRoomInfo(data);
+  else if (type.includes("LikeMessage")) onLikes(nameOf(data.user), Number(data.likeCount) || 1);
+  else if (type.includes("ChatMessage")) onChat(nameOf(data.user), data.comment);
+  else if (type.includes("MemberMessage")) onJoin(nameOf(data.user));
+  else if (type.includes("SocialMessage")) {
+    const action = String(data.action || "") + String((data.common && data.common.displayText && data.common.displayText.displayType) || "");
+    if (action.toLowerCase().includes("follow")) onFollow(nameOf(data.user));
+  }
+}
+
+function handleMessage(raw) {
+  let msg; try { msg = JSON.parse(raw); } catch (e) { return; }
+  const list = Array.isArray(msg.messages) ? msg.messages : [msg];
+  for (const m of list) handleEvent(m.type, m.data);
+}
+
+/* =========================================================
+   PART 7: Connect / test / menu
+   ========================================================= */
+const usernameInput = document.getElementById("username");
+const apikeyInput = document.getElementById("apikey");
+usernameInput.value = load("tt_username");
+apikeyInput.value = load("tt_apikey");
+
+let socket = null, started = false;
+
+function startGame() {
+  document.getElementById("setup").style.display = "none";
+  document.getElementById("game").style.display = "block";
+  if (!started) { started = true; requestAnimationFrame(frame); }
+}
+
+function connect() {
+  const username = usernameInput.value.trim().replace(/^@/, "");
+  const apiKey = apikeyInput.value.trim();
+  if (!username) { usernameInput.focus(); return; }
+  save("tt_username", username); save("tt_apikey", apiKey);
+  startGame();
+  setStatus("@" + username + " …");
+  const url = "wss://ws.eulerstream.com?uniqueId=" + encodeURIComponent(username) + (apiKey ? "&apiKey=" + encodeURIComponent(apiKey) : "");
+  try { socket = new WebSocket(url); } catch (e) { setStatus("✕", "err"); return; }
+  socket.onopen = () => setStatus("@" + username, "on");
+  socket.onmessage = (e) => { if (typeof e.data === "string") handleMessage(e.data); };
+  socket.onclose = (e) => {
+    const reasons = { 4401: "Wrong API key", 4404: "@" + username + " is not live", 4429: "Too many connections", 4005: "Live ended" };
+    setStatus(reasons[e.code] || "Disconnected (" + e.code + ")", "err");
+  };
+  socket.onerror = () => setStatus("Connection error", "err");
+}
+
+// Test buttons
+const fakeNames = ["Sara", "Omar", "Noura", "Faisal", "Lama", "Khalid"];
+const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+const testBar = document.getElementById("test-bar");
+function addTestBtn(label, fn) { const b = document.createElement("button"); b.textContent = label; b.onclick = fn; testBar.appendChild(b); }
+addTestBtn("❤️10", () => handleEvent("WebcastLikeMessage", { likeCount: 10, user: { nickname: pick(fakeNames) } }));
+addTestBtn("❤️500", () => handleEvent("WebcastLikeMessage", { likeCount: 500, user: { nickname: pick(fakeNames) } }));
+addTestBtn("❤️2k", () => handleEvent("WebcastLikeMessage", { likeCount: 2000, user: { nickname: pick(fakeNames) } }));
+addTestBtn("⏭", () => { if (state === "filling") { likes = Math.max(likes, TARGET_LIKES - 30); } });
+addTestBtn("💬", () => handleEvent("WebcastChatMessage", { user: { nickname: pick(fakeNames) }, comment: pick(["يلا لايكات ❤️", "قربنا!!", "Let's go!!", "طلعوها 🔥"]) }));
+addTestBtn("👋", () => handleEvent("WebcastMemberMessage", { user: { nickname: pick(fakeNames) } }));
+addTestBtn("🔄", resetJar);
+setInterval(() => { if (document.body.classList.contains("testing")) onRoomInfo({ viewerCount: 80 + Math.floor(Math.random() * 20) }); }, 3000);
+
+function testMode() { startGame(); setStatus("🧪", "on"); document.body.classList.add("testing"); }
+
+const menu = document.getElementById("menu");
+document.getElementById("menu-btn").onclick = () => menu.style.display = "flex";
+document.getElementById("close-menu-btn").onclick = () => menu.style.display = "none";
+document.getElementById("reset-btn").onclick = () => { resetJar(); menu.style.display = "none"; };
+document.getElementById("toggle-test-btn").onclick = () => { document.body.classList.toggle("testing"); menu.style.display = "none"; };
+document.getElementById("disconnect-btn").onclick = () => {
+  if (socket) { socket.onclose = null; socket.close(); socket = null; }
+  save("jar_likes", likes);
+  menu.style.display = "none";
+  document.body.classList.remove("testing");
+  document.getElementById("game").style.display = "none";
+  document.getElementById("setup").style.display = "block";
+};
+
+// Full screen: Android can do it from here. iPhone needs "Add to Home Screen".
+const fsBtn = document.getElementById("fullscreen-btn");
+const isApp = window.navigator.standalone || window.matchMedia("(display-mode: fullscreen)").matches || window.matchMedia("(display-mode: standalone)").matches;
+if (isApp) fsBtn.style.display = "none";
+fsBtn.onclick = () => {
+  const el = document.documentElement, req = el.requestFullscreen || el.webkitRequestFullscreen;
+  const tip = () => { fsBtn.textContent = "iPhone: tap Share ⬆️ → Add to Home Screen, then open the game from the new icon"; fsBtn.style.fontSize = "13px"; };
+  if (req && document.fullscreenEnabled !== false) {
+    try { const r = req.call(el); if (r && r.catch) r.catch(tip); } catch (e) { tip(); }
+    menu.style.display = "none";
+  } else tip();
+};
+
+// Save progress when the page is hidden (switching apps, closing)
+document.addEventListener("visibilitychange", () => { if (document.hidden) save("jar_likes", likes); });
+
+document.getElementById("connect-btn").onclick = connect;
+document.getElementById("test-btn").onclick = testMode;
+</script>
+</body>
+</html>
