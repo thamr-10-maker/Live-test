@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Race">
+<meta name="theme-color" content="#0d0b14">
+<link rel="manifest" href="race-manifest.json">
+<link rel="apple-touch-icon" href="race-icon-180.png">
+<title>3D Race – TikTok LIVE Game</title>
+<style>
+  :root { --pink: #ff3b6b; --gold: #ffc23d; --green: #3dff8a; --card: rgba(15,14,25,.72); }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; overflow: hidden; background: #87b9e0; color: #fff; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+  canvas { display: block; width: 100%; height: 100%; }
+
+  /* ---------- Setup screen ---------- */
+  #setup { position: absolute; inset: 0; z-index: 20; background: #0d0b14; padding: calc(24px + env(safe-area-inset-top)) 20px 24px; overflow-y: auto; }
+  #setup > div { max-width: 480px; margin: 0 auto; }
+  #setup h1 { font-size: 26px; margin-bottom: 6px; }
+  #setup p { color: #9a93b8; font-size: 14px; line-height: 1.5; margin-bottom: 10px; }
+  label { display: block; font-size: 13px; color: #9a93b8; margin: 14px 0 6px; }
+  input { width: 100%; padding: 14px; font-size: 16px; border-radius: 12px; border: 1px solid #332d4a; background: #1a1726; color: #fff; }
+  .btn { display: block; width: 100%; font-size: 16px; font-weight: 700; padding: 14px; border: 0; border-radius: 12px; margin-top: 10px; }
+  .btn-main { background: var(--pink); color: #fff; margin-top: 18px; }
+  .btn-soft { background: #1a1726; color: #fff; border: 1px solid #332d4a; }
+
+  /* ---------- HUD ---------- */
+  #hud { position: absolute; top: 0; left: 0; right: 0; padding: calc(6px + env(safe-area-inset-top)) 10px 0; pointer-events: none; }
+  #top-row { display: flex; justify-content: space-between; align-items: center; font-size: 11px; }
+  #room { display: flex; align-items: center; gap: 8px; background: var(--card); padding: 4px 10px; border-radius: 14px; }
+  #status .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #666; margin-right: 4px; }
+  #status.on .dot { background: var(--green); }
+  #status.err .dot { background: var(--pink); }
+  #viewers { font-size: 13px; font-weight: 800; }
+  #menu-btn { pointer-events: auto; padding: 5px 12px; font-size: 14px; background: var(--card); color: #fff; border: 0; border-radius: 14px; }
+
+  #phase { margin: 6px auto 0; width: fit-content; background: var(--card); border-radius: 16px; padding: 6px 16px; text-align: center; }
+  #phase-big { font-size: 26px; font-weight: 900; letter-spacing: .5px; }
+  #phase-small { font-size: 13px; font-weight: 700; opacity: .9; }
+  #phase.hurry #phase-big { color: var(--pink); animation: pulse .6s infinite; }
+  @keyframes pulse { 50% { transform: scale(1.12); } }
+
+  #join-hint { margin: 8px auto 0; width: fit-content; max-width: 94%; background: var(--pink); border-radius: 16px; padding: 6px 16px; text-align: center; font-weight: 800; line-height: 1.35; box-shadow: 0 6px 24px rgba(255,59,107,.45); }
+  #join-hint .ar { font-size: 19px; }
+  #join-hint .en { font-size: 13px; opacity: .92; }
+
+  /* catalog: gift picture ➜ car picture */
+  #catalog { margin: 8px auto 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; width: 100%; max-width: 380px; }
+  .chip { background: var(--card); border-radius: 10px; padding: 3px 4px; display: flex; align-items: center; justify-content: center; gap: 2px; }
+  .chip .gicon { width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; font-size: 18px; }
+  .chip .gicon img { width: 22px; height: 22px; object-fit: contain; }
+  .chip .arr { font-size: 10px; opacity: .7; }
+  .chip img.car { width: 54px; height: 32px; object-fit: contain; }
+  .chip.hit { animation: chipHit .7s; }
+  @keyframes chipHit { 40% { transform: scale(1.18); background: var(--gold); } }
+
+  #board { position: absolute; left: 10px; top: calc(98px + env(safe-area-inset-top)); background: var(--card); border-radius: 12px; padding: 6px 10px; font-size: 13px; line-height: 1.55; max-width: 62%; pointer-events: none; }
+  #board div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #boost-hint { position: absolute; right: 10px; top: calc(98px + env(safe-area-inset-top)); background: var(--card); border-radius: 12px; padding: 6px 10px; font-size: 18px; pointer-events: none; }
+
+  /* floating name tags above the top 3 cars */
+  .tag { position: absolute; transform: translate(-50%, -100%); background: rgba(0,0,0,.65); border-radius: 8px; padding: 2px 7px; font-size: 12px; font-weight: 800; white-space: nowrap; pointer-events: none; max-width: 120px; overflow: hidden; text-overflow: ellipsis; }
+  .tag.t0 { background: rgba(212,160,0,.9); }
+
+  /* chat / join feed */
+  #feed { position: absolute; left: 8px; bottom: calc(108px + env(safe-area-inset-bottom)); width: 72%; display: flex; flex-direction: column; gap: 4px; pointer-events: none; }
+  .feed-line { width: fit-content; max-width: 100%; background: var(--card); border-radius: 12px; padding: 4px 10px; font-size: 13px; line-height: 1.3; animation: feedIn .3s; transition: opacity .6s; overflow-wrap: anywhere; }
+  .feed-line .n { font-weight: 800; color: #8fd3ff; margin: 0 3px; }
+  .feed-line.join .n { color: var(--green); }
+  .feed-line.gift .n { color: var(--gold); }
+  .feed-line.gone { opacity: 0; }
+  @keyframes feedIn { from { opacity: 0; transform: translateY(6px); } }
+
+  #big-alert { position: absolute; left: 50%; top: 46%; transform: translate(-50%, -50%) scale(.6); background: var(--gold); color: #1a1200; padding: 10px 18px; border-radius: 18px; font-size: 20px; font-weight: 900; opacity: 0; transition: all .25s; display: flex; align-items: center; gap: 8px; white-space: nowrap; max-width: 94%; pointer-events: none; }
+  #big-alert.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  #big-alert .who { max-width: 150px; overflow: hidden; text-overflow: ellipsis; }
+  #big-alert img.car { width: 70px; height: 42px; object-fit: contain; }
+  #big-alert .gicon img { width: 28px; height: 28px; }
+
+  #podium { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; pointer-events: none; }
+  #podium.show { display: flex; }
+  #podium > div { background: rgba(15,14,25,.85); border-radius: 22px; padding: 18px 22px; text-align: center; min-width: 260px; box-shadow: 0 10px 40px rgba(0,0,0,.4); }
+  #podium .row { display: flex; align-items: center; gap: 10px; font-size: 20px; font-weight: 800; margin: 6px 0; }
+  #podium .row img { width: 64px; height: 38px; object-fit: contain; }
+  #podium .row span.n { max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #podium h2 { font-size: 34px; margin-bottom: 6px; }
+
+  /* camera buttons + test buttons */
+  #cams { position: absolute; left: 0; right: 0; bottom: calc(52px + env(safe-area-inset-bottom)); padding: 0 8px 6px; display: grid; grid-template-columns: repeat(6, 1fr); gap: 5px; }
+  #cams button { padding: 6px 0; border: 0; border-radius: 9px; font-size: 17px; background: rgba(0,0,0,.4); color: #fff; line-height: 1; }
+  #cams button.on { background: var(--pink); }
+  #test-bar { position: absolute; left: 0; right: 0; bottom: 0; padding: 6px 8px calc(8px + env(safe-area-inset-bottom)); display: none; grid-template-columns: repeat(6, 1fr); gap: 5px; background: rgba(0,0,0,.4); }
+  body.testing #test-bar { display: grid; }
+  body:not(.testing) #cams { bottom: calc(8px + env(safe-area-inset-bottom)); }
+  body:not(.testing) #feed { bottom: calc(62px + env(safe-area-inset-bottom)); }
+  #test-bar button { padding: 9px 0; border: 0; border-radius: 9px; font-size: 13px; font-weight: 800; background: rgba(255,255,255,.92); color: #222; }
+  #test-bar button.on { background: var(--pink); color: #fff; }
+
+  #menu { position: absolute; inset: 0; z-index: 15; background: rgba(13,11,20,.9); display: none; align-items: center; justify-content: center; }
+  #menu > div { width: 80%; max-width: 320px; }
+  #loading { position: absolute; inset: 0; z-index: 30; display: none; align-items: center; justify-content: center; background: #0d0b14; font-size: 18px; font-weight: 700; }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+
+<!-- ================= SETUP ================= -->
+<div id="setup"><div>
+  <h1>🏁 3D Race</h1>
+  <p>Viewers type <b>1</b> to get a race car. Gifts upgrade the car before the race. During the race, each viewer's own likes are their gas pedal, and gifts give a nitro boost.</p>
+  <label for="username">TikTok username (without @)</label>
+  <input id="username" placeholder="example: ahmed_live" autocomplete="off" autocapitalize="off">
+  <label for="apikey">Euler Stream API key</label>
+  <input id="apikey" placeholder="paste your key here" autocomplete="off" autocapitalize="off">
+  <button class="btn btn-main" id="connect-btn">Start game on LIVE</button>
+  <button class="btn btn-soft" id="test-btn">Try test mode</button>
+</div></div>
+<div id="loading">Loading cars… 🏎️</div>
+
+<!-- ================= HUD ================= -->
+<div id="hud">
+  <div id="top-row">
+    <div id="room"><div id="status"><span class="dot"></span><span id="status-text"></span></div><span id="viewers"></span></div>
+    <button id="menu-btn">☰</button>
+  </div>
+  <div id="phase"><div id="phase-big"></div><div id="phase-small"></div></div>
+  <div id="lobby-ui">
+    <div id="join-hint"><div class="ar">اكتب 1 وخذ سيارتك 🏎️</div><div class="en">Type 1 to get your race car</div></div>
+    <div id="catalog"></div>
+  </div>
+</div>
+<div id="board"></div>
+<div id="boost-hint">🎁➜🔥</div>
+<div id="tags"></div>
+<div id="feed"></div>
+<div id="big-alert"></div>
+<div id="podium"><div><h2>🏆</h2><div id="podium-rows"></div></div></div>
+
+<div id="cams">
+  <button data-cam="overview" class="on">🗺️</button>
+  <button data-cam="leader">🥇</button>
+  <button data-cam="front">👀</button>
+  <button data-cam="middle">🚗</button>
+  <button data-cam="rear">🐢</button>
+  <button data-cam="orbit">🔄</button>
+</div>
+<div id="test-bar">
+  <button id="t-join10">+10</button>
+  <button id="t-join100">+100</button>
+  <button id="t-gift">🎁</button>
+  <button id="t-likes" class="on">❤️ auto</button>
+  <button id="t-chat">💬</button>
+  <button id="t-skip">⏭</button>
+</div>
+
+<div id="menu"><div>
+  <button class="btn btn-soft" id="fullscreen-btn">⛶ Full screen</button>
+  <button class="btn btn-soft" id="skip-btn">⏭ Skip to next phase</button>
+  <button class="btn btn-soft" id="toggle-test-btn">🧪 Show / hide test buttons</button>
+  <button class="btn btn-soft" id="disconnect-btn">✕ Disconnect</button>
+  <button class="btn btn-main" id="close-menu-btn">Back to game</button>
+</div></div>
+
+<script type="module">
+import * as THREE from "three";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
+
+/* =========================================================
+   SETTINGS – change these to tune the game
+   ========================================================= */
+const LOBBY_SECONDS = 60;      // time to join + upgrade before each race
+const RACE_SECONDS = 150;      // race length (2:30). Furthest car when time is up wins.
+const PODIUM_SECONDS = 15;     // how long the winners are shown
+const MAX_CARS = 500;
+const LIKES_FOR_FULL_GAS = 6;  // likes per second a viewer needs for full speed
+
+// Car tiers, cheapest first. "coins" = gift price needed (total of a combo counts).
+// "gift"/"icon" = the gift shown in the catalog. "speed" = how much each like pushes this car.
+const TIERS = [
+  { model: "race",       paint: 0x9aa0a8, coins: 0,    gift: "",             icon: "1️⃣", speed: 1.00 },
+  { model: "race",       paint: 0xf4f4f4, coins: 1,    gift: "Rose",         icon: "🌹", speed: 1.10 },
+  { model: "race",       paint: 0x2fbf71, coins: 5,    gift: "Finger Heart", icon: "🫰", speed: 1.20 },
+  { model: "race",       paint: 0x2f6bff, coins: 30,   gift: "Doughnut",     icon: "🍩", speed: 1.30 },
+  { model: "race",       paint: 0xff8a1f, coins: 100,  gift: "Hand Hearts",  icon: "🫶", speed: 1.45 },
+  { model: "race",       paint: 0xe8262f, coins: 299,  gift: "Corgi",        icon: "🐶", speed: 1.60 },
+  { model: "raceFuture", paint: 0x23252b, coins: 500,  gift: "Money Gun",    icon: "💸", speed: 1.80 },
+  { model: "raceFuture", paint: 0x7b3dff, coins: 1000, gift: "Galaxy",       icon: "🌌", speed: 2.05 },
+  { model: "raceFuture", paint: 0xf5c518, coins: 5000, gift: "Lion",         icon: "🦁", speed: 2.40 },
+];
+
+/* =========================================================
+   PART 1: 3D scene
+   ========================================================= */
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.prepend(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x87b9e0);
+scene.fog = new THREE.Fog(0x87b9e0, 450, 950);
+const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 1, 1600);
+scene.add(new THREE.HemisphereLight(0xffffff, 0x8a7a5a, 1.6));
+const sun = new THREE.DirectionalLight(0xffffff, 1.6); sun.position.set(60, 120, 40); scene.add(sun);
+window.addEventListener("resize", () => {
+  camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+/* ---------- Track: two straights + two half circles ---------- */
+const L = 200, R = 46, HALF_W = 13, LANES = 9;
+const LOOP = 2 * L + 2 * Math.PI * R;
+const laneD = i => -HALF_W + 1.8 + i * ((HALF_W * 2 - 3.6) / (LANES - 1));
+
+function trackAt(s, d, out) {
+  s = ((s % LOOP) + LOOP) % LOOP;
+  let x, z, dx, dz;
+  if (s < L) { x = R + d; z = L / 2 - s; dx = 0; dz = -1; }
+  else if (s < L + Math.PI * R) { const t = (s - L) / R; x = (R + d) * Math.cos(t); z = -L / 2 - (R + d) * Math.sin(t); dx = -Math.sin(t); dz = -Math.cos(t); }
+  else if (s < 2 * L + Math.PI * R) { x = -(R + d); z = -L / 2 + (s - L - Math.PI * R); dx = 0; dz = 1; }
+  else { const t = (s - 2 * L - Math.PI * R) / R; x = -(R + d) * Math.cos(t); z = L / 2 + (R + d) * Math.sin(t); dx = Math.sin(t); dz = Math.cos(t); }
+  out.x = x; out.z = z; out.yaw = Math.atan2(dx, dz);
+  return out;
+}
+
+function stripMesh(d1, d2, y, color, dashEvery) {
+  const pos = [], idx = [], col = [], steps = 400, a = {}, b = {};
+  const c1 = new THREE.Color(color), c2 = new THREE.Color(0xffffff);
+  for (let i = 0; i <= steps; i++) {
+    const s = (i / steps) * LOOP;
+    trackAt(s, d1, a); trackAt(s, d2, b);
+    pos.push(a.x, y, a.z, b.x, y, b.z);
+    const c = dashEvery && Math.floor(i / dashEvery) % 2 ? c2 : c1;
+    col.push(c.r, c.g, c.b, c.r, c.g, c.b);
+    if (i < steps) { const k = i * 2; idx.push(k, k + 1, k + 2, k + 1, k + 3, k + 2); }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute("color", new THREE.Float32BufferAttribute(col, 3));
+  g.setIndex(idx); g.computeVertexNormals();
+  return new THREE.Mesh(g, new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }));
+}
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(1600, 1600), new THREE.MeshLambertMaterial({ color: 0xdcc59a }));
+ground.rotation.x = -Math.PI / 2; ground.position.y = -0.05; scene.add(ground);
+scene.add(stripMesh(-R + 0.5, -HALF_W - 1, 0.0, 0x6fae4f));
+scene.add(stripMesh(-HALF_W, HALF_W, 0.02, 0x3d4049));
+scene.add(stripMesh(-HALF_W - 1.4, -HALF_W, 0.03, 0xd8392f, 3));
+scene.add(stripMesh(HALF_W, HALF_W + 1.4, 0.03, 0xd8392f, 3));
+for (let i = 0; i < LANES - 1; i++) { const d = (laneD(i) + laneD(i + 1)) / 2; scene.add(stripMesh(d - 0.12, d + 0.12, 0.04, 0x3d4049, 2)); }
+for (let i = 0; i < 26; i++) for (let j = 0; j < 2; j++) {
+  const sq = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ color: (i + j) % 2 ? 0xffffff : 0x111111 }));
+  sq.rotation.x = -Math.PI / 2; sq.position.set(R - HALF_W + 0.5 + i, 0.05, L / 2 - 1 + j); scene.add(sq);
+}
+{ // grandstands + crowd
+  const colors = [0xff3b6b, 0xffc23d, 0x3de0ff, 0xffffff, 0x3dff8a, 0x9b7bff];
+  const crowd = new THREE.InstancedMesh(new THREE.BoxGeometry(0.8, 0.8, 0.8), new THREE.MeshLambertMaterial(), 2 * 4 * 140);
+  const m4 = new THREE.Matrix4(), c = new THREE.Color(); let i = 0;
+  for (const side of [1, -1]) {
+    const sx = side * (R + HALF_W + 7);
+    const stand = new THREE.Mesh(new THREE.BoxGeometry(6, 3, 140), new THREE.MeshLambertMaterial({ color: 0x9aa3b5 }));
+    stand.position.set(sx, 1.5, 0); scene.add(stand);
+    for (let row = 0; row < 4; row++) for (let k = 0; k < 140; k++) {
+      m4.makeTranslation(sx + side * (row * 1.3 - 2), 3.4 + row * 0.6, -69 + k);
+      crowd.setMatrixAt(i, m4); crowd.setColorAt(i, c.setHex(colors[(row * 7 + k * 3) % colors.length])); i++;
+    }
+  }
+  scene.add(crowd);
+}
+
+/* =========================================================
+   PART 2: Car models → one fast "instanced" mesh per tier
+   ========================================================= */
+const loader = new GLTFLoader();
+const CAR_LENGTH = 4.2;
+async function loadCarModel(name, paint) {
+  const gltf = await loader.loadAsync("cars/" + name + ".glb");
+  gltf.scene.updateMatrixWorld(true);
+  const parts = [];
+  gltf.scene.traverse(o => {
+    if (!o.isMesh) return;
+    let g = o.geometry.clone().applyMatrix4(o.matrixWorld);
+    g = g.index ? g.toNonIndexed() : g;
+    const keep = new THREE.BufferGeometry();
+    keep.setAttribute("position", g.getAttribute("position"));
+    keep.setAttribute("normal", g.getAttribute("normal"));
+    let c = (o.material && o.material.color) ? o.material.color : new THREE.Color(0xffffff);
+    const isBody = !/wheel/i.test(o.name + (o.parent ? o.parent.name : ""));
+    if (isBody && o.material && /^paint/i.test(o.material.name)) c = new THREE.Color(paint);
+    const n = keep.getAttribute("position").count, cols = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) { cols[i * 3] = c.r; cols[i * 3 + 1] = c.g; cols[i * 3 + 2] = c.b; }
+    keep.setAttribute("color", new THREE.BufferAttribute(cols, 3));
+    parts.push(keep);
+  });
+  const merged = mergeGeometries(parts);
+  merged.computeBoundingBox();
+  const bb = merged.boundingBox, size = new THREE.Vector3(); bb.getSize(size);
+  const k = CAR_LENGTH / Math.max(size.x, size.z);
+  merged.translate(-(bb.min.x + bb.max.x) / 2, -bb.min.y, -(bb.min.z + bb.max.z) / 2);
+  merged.scale(k, k, k);
+  if (size.x > size.z) merged.rotateY(Math.PI / 2);
+  merged.rotateY(Math.PI);    // the models face backwards – turn them around
+  return merged;
+}
+const carMaterial = new THREE.MeshLambertMaterial({ vertexColors: true });
+const tierMeshes = [];
+const shadowMesh = new THREE.InstancedMesh(
+  new THREE.CircleGeometry(1, 16).rotateX(-Math.PI / 2).scale(1.2, 1, 2.4),
+  new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.28, depthWrite: false }), MAX_CARS);
+shadowMesh.frustumCulled = false; scene.add(shadowMesh);
+// nitro flames (orange glow behind boosting cars)
+const flameMesh = new THREE.InstancedMesh(new THREE.ConeGeometry(0.7, 3, 8).rotateX(-Math.PI / 2),
+  new THREE.MeshBasicMaterial({ color: 0xff8a1f, transparent: true, opacity: 0.85 }), MAX_CARS);
+flameMesh.frustumCulled = false; flameMesh.count = 0; scene.add(flameMesh);
+
+// Take a picture of each car for the catalog and pop-ups
+const carPics = [];
+function photographCars(geos) {
+  const r = new THREE.WebGLRenderer({ alpha: true, antialias: true, preserveDrawingBuffer: true });
+  r.setSize(180, 108); r.setPixelRatio(1);
+  const sc = new THREE.Scene();
+  sc.add(new THREE.HemisphereLight(0xffffff, 0x888888, 2)); const dl = new THREE.DirectionalLight(0xffffff, 1.5); dl.position.set(3, 6, 4); sc.add(dl);
+  const cam = new THREE.PerspectiveCamera(30, 180 / 108, 0.1, 100);
+  cam.position.set(3.9, 2.5, 3.9); cam.lookAt(0, 0.45, 0);
+  for (const g of geos) {
+    const m = new THREE.Mesh(g, carMaterial); m.rotation.y = -0.6; sc.add(m);
+    r.render(sc, cam); carPics.push(r.domElement.toDataURL("image/png")); sc.remove(m);
+  }
+  r.dispose(); r.forceContextLoss();
+}
+
+/* =========================================================
+   PART 3: Players and cars
+   ========================================================= */
+let cars = [];                      // cars in the current race / lobby
+const byName = new Map();           // name → car
+let nextRace = new Map();           // name → tier, for people who join during a race
+const tmp = {}, dummy = new THREE.Object3D();
+
+function tierForCoins(coins) { let t = 0; TIERS.forEach((x, i) => { if (coins >= x.coins) t = i; }); return t; }
+function tierForGift(name, coins) {
+  const byGift = TIERS.findIndex(t => t.gift && t.gift.toLowerCase() === (name || "").toLowerCase());
+  return Math.max(byGift, tierForCoins(coins));
+}
+
+function addCar(name, tier) {
+  if (byName.has(name) || cars.length >= MAX_CARS) return null;
+  const car = { name, tier: tier || 0, s: 0, d: 0, lane: 0, speed: 0, gas: 0, boostUntil: 0, hop: 0, joined: cars.length, laneCooldown: 0 };
+  cars.push(car); byName.set(name, car);
+  layoutGrid(); refreshCounts();
+  return car;
+}
+
+// Starting grid: best cars in front, then by who joined first
+function layoutGrid() {
+  const order = [...cars].sort((a, b) => b.tier - a.tier || a.joined - b.joined);
+  order.forEach((c, i) => {
+    c.lane = i % LANES;
+    c.gridS = -4 - Math.floor(i / LANES) * 6.5;
+    c.gridD = laneD(c.lane);
+  });
+}
+
+function refreshCounts() {
+  const counts = new Array(TIERS.length).fill(0);
+  for (const c of cars) counts[c.tier]++;
+  tierMeshes.forEach((m, t) => m.count = counts[t]);
+  shadowMesh.count = cars.length;
+}
+
+/* =========================================================
+   PART 4: Game phases  (lobby → race → podium → lobby …)
+   ========================================================= */
+let phase = "lobby", phaseEnds = 0, raceStart = 0;
+
+function startLobby() {
+  phase = "lobby";
+  phaseEnds = performance.now() + LOBBY_SECONDS * 1000;
+  cars = []; byName.clear();
+  for (const [name, tier] of nextRace) addCar(name, tier);   // people who joined during the last race
+  nextRace = new Map();
+  refreshCounts();
+  document.getElementById("podium").classList.remove("show");
+  document.getElementById("lobby-ui").style.display = "block";
+  document.getElementById("board").style.display = "none";
+  document.getElementById("boost-hint").style.display = "none";
+  setCam("grid", true);
+}
+
+function startRace() {
+  phase = "race";
+  raceStart = performance.now();
+  phaseEnds = raceStart + RACE_SECONDS * 1000;
+  for (const c of cars) { c.s = c.gridS; c.d = c.gridD; c.speed = 0; c.gas = Math.max(c.gas, 3); }
+  document.getElementById("lobby-ui").style.display = "none";
+  document.getElementById("board").style.display = "block";
+  document.getElementById("boost-hint").style.display = "block";
+  setCam(userCam === "grid" ? "overview" : userCam, true);
+  bigAlert(["🏁 GO!"]);
+}
+
+function startPodium() {
+  phase = "podium";
+  phaseEnds = performance.now() + PODIUM_SECONDS * 1000;
+  rankCars();
+  const rows = document.getElementById("podium-rows"); rows.innerHTML = "";
+  ranked.slice(0, 3).forEach((c, i) => {
+    const row = document.createElement("div"); row.className = "row";
+    row.appendChild(document.createTextNode(["🥇", "🥈", "🥉"][i]));
+    const img = document.createElement("img"); img.src = carPics[c.tier]; row.appendChild(img);
+    const n = document.createElement("span"); n.className = "n"; n.textContent = c.name; row.appendChild(n);
+    rows.appendChild(row);
+  });
+  if (!ranked.length) rows.textContent = "—";
+  document.getElementById("podium").classList.add("show");
+  setCam("leader", true);
+}
+
+function skipPhase() { phaseEnds = performance.now(); }
+
+function updatePhase(now) {
+  const left = Math.max(0, Math.ceil((phaseEnds - now) / 1000));
+  const mmss = Math.floor(left / 60) + ":" + String(left % 60).padStart(2, "0");
+  const big = document.getElementById("phase-big"), small = document.getElementById("phase-small"), box = document.getElementById("phase");
+  if (phase === "lobby") {
+    big.textContent = "⏳ " + mmss; small.textContent = "🏎️ " + cars.length;
+    box.classList.toggle("hurry", left <= 5);
+    if (now >= phaseEnds) startRace();
+  } else if (phase === "race") {
+    big.textContent = "⏱ " + mmss; small.textContent = left <= 30 ? "🏁🏁🏁" : "🏎️ " + cars.length;
+    box.classList.toggle("hurry", left <= 10);
+    if (now >= phaseEnds) startPodium();
+  } else {
+    big.textContent = "🏆"; small.textContent = "⏳ " + mmss;
+    box.classList.remove("hurry");
+    if (now >= phaseEnds) startLobby();
+  }
+}
+
+/* =========================================================
+   PART 5: Driving – likes are gas, cars keep their lane and overtake
+   ========================================================= */
+const IDLE = 0.05, FULL = 0.17;       // speed per frame without / with full gas
+let ranked = [];
+function rankCars() { ranked = [...cars].sort((a, b) => b.s - a.s); }
+setInterval(rankCars, 250);
+
+function drive(dt, now) {
+  if (phase === "lobby") {
+    for (const c of cars) { c.s += (c.gridS - c.s) * 0.1 * dt; c.d += (c.gridD - c.d) * 0.1 * dt; }
+    return;
+  }
+  const perFrame = LIKES_FOR_FULL_GAS / 60 * dt;
+  for (const c of cars) {
+    const use = Math.min(c.gas, perFrame);
+    c.gas -= use;
+    const throttle = phase === "race" ? use / perFrame : 0;
+    let target = (IDLE + (FULL - IDLE) * throttle) * TIERS[c.tier].speed;
+    if (now < c.boostUntil) target *= 1.7;
+    if (phase !== "race") target = IDLE;
+    c.target = target;
+    c.speed += (target - c.speed) * 0.06 * dt;
+  }
+  // keep cars from driving through each other: look at the car ahead in the same lane
+  const lanes = Array.from({ length: LANES }, () => []);
+  for (const c of cars) lanes[c.lane].push(c);
+  for (const lane of lanes) lane.sort((a, b) => b.s - a.s);
+  for (let li = 0; li < LANES; li++) {
+    const lane = lanes[li];
+    for (let i = 1; i < lane.length; i++) {
+      const c = lane[i], ahead = lane[i - 1];
+      if (ahead.s - c.s < 6 && c.speed > ahead.speed) {
+        c.laneCooldown -= dt;
+        if (c.laneCooldown <= 0 && c.target > ahead.speed * 1.05) {     // try to overtake
+          c.laneCooldown = 20;
+          const dir = Math.random() < 0.5 ? -1 : 1;
+          for (const nl of [li + dir, li - dir]) {
+            if (nl < 0 || nl >= LANES) continue;
+            if (lanes[nl].every(o => Math.abs(o.s - c.s) > 7)) { c.lane = nl; break; }
+          }
+        }
+        if (c.lane === li) c.speed = ahead.speed;
+      }
+    }
+  }
+  for (const c of cars) { c.s += c.speed * dt; c.d += (laneD(c.lane) - c.d) * 0.06 * dt; }
+}
+
+function drawCars(dt, now) {
+  const counters = new Array(TIERS.length).fill(0);
+  let flames = 0;
+  cars.forEach((c, i) => {
+    trackAt(c.s, c.d, tmp);
+    c.hop = Math.max(0, c.hop - 0.04 * dt);
+    const hopY = Math.sin(c.hop * Math.PI) * 2.5;
+    dummy.position.set(tmp.x, hopY, tmp.z); dummy.rotation.set(0, tmp.yaw, 0); dummy.scale.set(1, 1, 1); dummy.updateMatrix();
+    tierMeshes[c.tier].setMatrixAt(counters[c.tier]++, dummy.matrix);
+    c.x = tmp.x; c.z = tmp.z;
+    dummy.position.y = 0.06; dummy.updateMatrix(); shadowMesh.setMatrixAt(i, dummy.matrix);
+    if (now < c.boostUntil && phase === "race") {
+      trackAt(c.s - 3.4, c.d, tmp);
+      dummy.position.set(tmp.x, 0.8, tmp.z); dummy.rotation.set(0, tmp.yaw + Math.PI, 0);
+      const f = 0.8 + Math.random() * 0.5; dummy.scale.set(f, f, f); dummy.updateMatrix();
+      flameMesh.setMatrixAt(flames++, dummy.matrix);
+    }
+  });
+  flameMesh.count = flames; flameMesh.instanceMatrix.needsUpdate = true;
+  for (const m of tierMeshes) m.instanceMatrix.needsUpdate = true;
+  shadowMesh.instanceMatrix.needsUpdate = true;
+}
+
+/* =========================================================
+   PART 6: Cameras
+   ========================================================= */
+let camMode = "grid", userCam = "overview";
+const camPos = new THREE.Vector3(0, 225, 345), camLook = new THREE.Vector3(0, 0, -45);
+const wantPos = new THREE.Vector3(), wantLook = new THREE.Vector3(), p1 = {}, p2 = {};
+function setCam(mode, auto) {
+  camMode = mode;
+  if (!auto) userCam = mode;
+  document.querySelectorAll("[data-cam]").forEach(b => b.classList.toggle("on", b.dataset.cam === mode));
+}
+function chase(car, behind, height) {
+  trackAt(car.s - behind, car.d * 0.5, p1); trackAt(car.s + 6, car.d, p2);
+  wantPos.set(p1.x, height, p1.z); wantLook.set(p2.x, 1, p2.z);
+}
+function updateCamera(dt, now) {
+  const portrait = window.innerHeight > window.innerWidth;
+  let ease = 0.06;
+  if (!ranked.length && cars.length) rankCars();
+  const leader = ranked[0];
+  if (camMode === "grid" || !leader) {
+    // look at the starting grid from in front of the start line
+    const rows = Math.max(1, Math.ceil(cars.length / LANES));
+    const back = Math.min(60, 10 + rows * 2.5);
+    trackAt(26, 0, p1); trackAt(-back * 0.6, 0, p2);
+    wantPos.set(p1.x + 18, 22 + back * 0.6, p1.z); wantLook.set(p2.x, 0, p2.z);
+  } else if (camMode === "overview") {
+    wantPos.set(0, portrait ? 225 : 170, portrait ? 345 : 265); wantLook.set(0, 0, portrait ? -45 : -20);
+  } else if (camMode === "leader") chase(leader, 26, 16);
+  else if (camMode === "front") { trackAt(leader.s + 26, leader.d, p1); trackAt(leader.s, leader.d, p2); wantPos.set(p1.x, 10, p1.z); wantLook.set(p2.x, 1, p2.z); ease = 0.1; }
+  else if (camMode === "middle") chase(ranked[Math.floor(ranked.length / 2)], 30, 20);
+  else if (camMode === "rear") chase(ranked[ranked.length - 1], 24, 14);
+  else if (camMode === "orbit") { const a = now / 9000; wantPos.set(Math.sin(a) * 230, 90, Math.cos(a) * 300); wantLook.set(0, 0, 0); ease = 0.04; }
+  camPos.lerp(wantPos, Math.min(1, ease * dt));
+  camLook.lerp(wantLook, Math.min(1, ease * 1.6 * dt));
+  camera.position.copy(camPos); camera.lookAt(camLook);
+}
+
+/* =========================================================
+   PART 7: Screen: catalog, leaderboard, name tags, pop-ups, feed
+   ========================================================= */
+let giftPics = {};
+try { giftPics = JSON.parse(localStorage.getItem("gift_pics") || "{}"); } catch (e) {}
+function rememberPic(name, url) {
+  if (!name || !url || giftPics[name.toLowerCase()] === url) return;
+  giftPics[name.toLowerCase()] = url;
+  try { localStorage.setItem("gift_pics", JSON.stringify(giftPics)); } catch (e) {}
+  drawCatalog();
+}
+function giftIcon(name, emoji, url) {
+  const span = document.createElement("span"); span.className = "gicon";
+  const src = url || giftPics[(name || "").toLowerCase()];
+  if (src) { const img = document.createElement("img"); img.src = src; img.onerror = () => span.textContent = emoji; span.appendChild(img); }
+  else span.textContent = emoji;
+  return span;
+}
+function carImg(tier) { const img = document.createElement("img"); img.className = "car"; img.src = carPics[tier]; return img; }
+
+function drawCatalog() {
+  const box = document.getElementById("catalog"); box.innerHTML = "";
+  TIERS.forEach((t, i) => {
+    const chip = document.createElement("div"); chip.className = "chip"; chip.dataset.tier = i;
+    chip.appendChild(giftIcon(t.gift, t.icon));
+    const a = document.createElement("span"); a.className = "arr"; a.textContent = "➜"; chip.appendChild(a);
+    chip.appendChild(carImg(i));
+    box.appendChild(chip);
+  });
+}
+function flashChip(tier) {
+  const chip = document.querySelector('#catalog [data-tier="' + tier + '"]');
+  if (chip) { chip.classList.remove("hit"); void chip.offsetWidth; chip.classList.add("hit"); }
+}
+
+function showBoard() {
+  if (phase !== "race") return;
+  const box = document.getElementById("board"); box.innerHTML = "";
+  ranked.slice(0, 5).forEach((c, i) => {
+    const row = document.createElement("div");
+    row.textContent = ["🥇", "🥈", "🥉", "4", "5"][i] + " " + c.name + (Date.now() < c.boostUntil ? " 🔥" : "");
+    box.appendChild(row);
+  });
+}
+setInterval(showBoard, 400);
+
+// name tags above the top 3 cars
+const tagEls = [0, 1, 2].map(i => { const d = document.createElement("div"); d.className = "tag t" + i; document.getElementById("tags").appendChild(d); return d; });
+const v3 = new THREE.Vector3();
+function updateTags() {
+  const list = phase === "lobby" ? [...cars].sort((a, b) => b.tier - a.tier || a.joined - b.joined) : ranked;
+  tagEls.forEach((el, i) => {
+    const c = list[i];
+    if (!c || c.x === undefined) { el.style.display = "none"; return; }
+    v3.set(c.x, 3.2, c.z).project(camera);
+    if (v3.z > 1) { el.style.display = "none"; return; }
+    el.style.display = "block";
+    el.style.left = ((v3.x + 1) / 2 * window.innerWidth) + "px";
+    el.style.top = ((1 - v3.y) / 2 * window.innerHeight) + "px";
+    el.textContent = (phase === "lobby" ? "" : ["🥇 ", "🥈 ", "🥉 "][i]) + c.name;
+  });
+}
+
+function bigAlert(parts) {
+  const a = document.getElementById("big-alert"); a.innerHTML = "";
+  for (const p of parts) {
+    if (typeof p === "string") a.appendChild(document.createTextNode(p));
+    else a.appendChild(p);
+  }
+  a.classList.add("show");
+  clearTimeout(window._alertT); window._alertT = setTimeout(() => a.classList.remove("show"), 2200);
+}
+
+const FEED_MAX = 4, FEED_SECONDS = 8;
+let lastJoinFeed = 0;
+function addFeed(kind, icon, name, text) {
+  const feed = document.getElementById("feed");
+  const line = document.createElement("div"); line.className = "feed-line " + kind; line.dir = "auto";
+  line.appendChild(document.createTextNode(icon));
+  const n = document.createElement("span"); n.className = "n"; n.textContent = name; line.appendChild(n);
+  if (text) line.appendChild(document.createTextNode(text));
+  feed.appendChild(line);
+  while (feed.children.length > FEED_MAX) feed.firstChild.remove();
+  setTimeout(() => line.classList.add("gone"), FEED_SECONDS * 1000);
+  setTimeout(() => line.remove(), FEED_SECONDS * 1000 + 700);
+}
+
+/* =========================================================
+   PART 8: Viewers → game
+   ========================================================= */
+function isJoin(text) { return /^\s*[1١]\s*$/.test(text || ""); }
+
+function onChat(name, text) {
+  if (isJoin(text)) { join(name); return; }
+  if (text && text.trim()) addFeed("chat", "💬", name, text);
+}
+
+function join(name, tier) {
+  if (phase === "lobby") {
+    const car = addCar(name, tier || 0);
+    if (car) { car.hop = 1; addFeed("join", "🏎️", name, ""); }
+  } else if (!byName.has(name) && !nextRace.has(name)) {
+    nextRace.set(name, tier || 0);
+    addFeed("join", "⏳🏎️", name, "");
+  }
+}
+
+function onLikes(name, amount) {
+  const car = byName.get(name);
+  if (car) car.gas = Math.min(car.gas + amount, 120);
+}
+
+function onGift(name, giftName, coins, picUrl) {
+  rememberPic(giftName, picUrl);
+  const tier = tierForGift(giftName, coins);
+  let car = byName.get(name);
+  if (phase === "lobby") {
+    if (!car) car = addCar(name, 0);           // a gift also joins you
+    if (!car) return;
+    if (tier > car.tier) { car.tier = tier; layoutGrid(); refreshCounts(); }
+    car.hop = 1;
+    flashChip(car.tier);
+    bigAlert([Object.assign(document.createElement("span"), { className: "who", textContent: name }), giftIcon(giftName, TIERS[tier].icon, picUrl), "➜", carImg(car.tier)]);
+  } else if (phase === "race" && car) {
+    // during the race a gift = nitro boost (bigger gift = longer boost)
+    const secs = Math.min(12, 2 + Math.log10(coins + 1) * 3);
+    car.boostUntil = Math.max(car.boostUntil, performance.now()) + secs * 1000;
+    car.gas += 10;
+    bigAlert([Object.assign(document.createElement("span"), { className: "who", textContent: name }), giftIcon(giftName, "🎁", picUrl), "➜ 🔥"]);
+  } else {
+    // not in this race: remember the upgrade for the next one
+    const prev = nextRace.get(name) || 0;
+    nextRace.set(name, Math.max(prev, tier));
+    addFeed("gift", "🎁⏳", name, "");
+  }
+}
+
+/* ---------- TikTok messages ---------- */
+function nameOf(user) { return (user && (user.nickname || user.uniqueId)) || "?"; }
+function picOf(d) { const img = d.giftImage || d.image || d.icon || {}; return (img.url && img.url[0]) || (img.urlList && img.urlList[0]) || ""; }
+
+function handleEvent(type, data) {
+  if (!type || !data) return;
+  if (type.includes("RoomUserSeqMessage")) {
+    const n = Number(data.viewerCount || data.totalUser || 0);
+    if (n) document.getElementById("viewers").textContent = "👁 " + n;
+  } else if (type.includes("LikeMessage")) onLikes(nameOf(data.user), Number(data.likeCount) || 1);
+  else if (type.includes("ChatMessage")) onChat(nameOf(data.user), data.comment);
+  else if (type.includes("MemberMessage")) {
+    const now = Date.now();
+    if (now - lastJoinFeed > 1500) { lastJoinFeed = now; addFeed("chat", "👋", nameOf(data.user), ""); }
+  } else if (type.includes("GiftMessage")) {
+    const d = data.giftDetails || {};
+    if (Number(d.giftType) === 1 && !Number(data.repeatEnd)) return;   // wait until a combo ends
+    const count = Number(data.repeatCount) || 1;
+    onGift(nameOf(data.user), d.giftName || d.name || "", (Number(d.diamondCount) || 1) * count, picOf(d));
+  }
+}
+function handleMessage(raw) {
+  let msg; try { msg = JSON.parse(raw); } catch (e) { return; }
+  for (const m of (Array.isArray(msg.messages) ? msg.messages : [msg])) handleEvent(m.type, m.data);
+}
+
+/* =========================================================
+   PART 9: Connection that fixes itself
+   ========================================================= */
+function load(k) { try { return localStorage.getItem(k) || ""; } catch (e) { return ""; } }
+function save(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+function setStatus(text, kind) { document.getElementById("status").className = kind || ""; document.getElementById("status-text").textContent = text; }
+
+let socket = null, wantConnected = false, reconnectTimer = null, retryDelay = 2000, lastMessageAt = 0, liveUser = "", liveKey = "";
+function openSocket() {
+  clearTimeout(reconnectTimer);
+  if (socket) { socket.onclose = null; try { socket.close(); } catch (e) {} socket = null; }
+  setStatus("@" + liveUser + " …");
+  const url = "wss://ws.eulerstream.com?uniqueId=" + encodeURIComponent(liveUser) + (liveKey ? "&apiKey=" + encodeURIComponent(liveKey) : "");
+  try { socket = new WebSocket(url); } catch (e) { scheduleReconnect(5000); return; }
+  socket.onopen = () => { setStatus("@" + liveUser, "on"); retryDelay = 2000; lastMessageAt = Date.now(); };
+  socket.onmessage = (e) => { lastMessageAt = Date.now(); if (typeof e.data === "string") handleMessage(e.data); };
+  socket.onclose = (e) => {
+    socket = null; if (!wantConnected) return;
+    if (e.code === 4401) { setStatus("Wrong API key", "err"); return; }
+    if (e.code === 4404) { setStatus("Not live yet – retrying…", "err"); scheduleReconnect(10000); return; }
+    if (e.code === 4429) { setStatus("Too many connections – waiting…", "err"); scheduleReconnect(30000); return; }
+    setStatus("↻ Reconnecting…", "err"); scheduleReconnect(retryDelay); retryDelay = Math.min(retryDelay * 2, 15000);
+  };
+  socket.onerror = () => {};
+}
+function scheduleReconnect(ms) { clearTimeout(reconnectTimer); reconnectTimer = setTimeout(() => { if (wantConnected && !document.hidden) openSocket(); }, ms); }
+document.addEventListener("visibilitychange", () => { if (!document.hidden && wantConnected && (!socket || socket.readyState > 1)) { retryDelay = 2000; openSocket(); } });
+setInterval(() => { if (wantConnected && !document.hidden && socket && socket.readyState === 1 && Date.now() - lastMessageAt > 45000) openSocket(); }, 5000);
+
+/* =========================================================
+   PART 10: Start, test mode, menu
+   ========================================================= */
+const usernameInput = document.getElementById("username"), apikeyInput = document.getElementById("apikey");
+usernameInput.value = load("tt_username"); apikeyInput.value = load("tt_apikey");
+
+let ready = false, testing = false, autoLikes = true;
+async function boot() {
+  if (ready) return;
+  document.getElementById("loading").style.display = "flex";
+  const geos = await Promise.all(TIERS.map(t => loadCarModel(t.model, t.paint)));
+  geos.forEach((g, t) => { const m = new THREE.InstancedMesh(g, carMaterial, MAX_CARS); m.count = 0; m.frustumCulled = false; scene.add(m); tierMeshes[t] = m; });
+  photographCars(geos);
+  drawCatalog();
+  document.getElementById("loading").style.display = "none";
+  ready = true;
+  startLobby();
+  requestAnimationFrame(loop);
+}
+
+let last = performance.now();
+function loop(now) {
+  const dt = Math.min(3, (now - last) / 16.67); last = now;
+  if (testing && autoLikes && phase === "race") for (const c of cars) if (Math.random() < 0.04 * dt) c.gas += 3 + Math.random() * 12;
+  updatePhase(now);
+  drive(dt, now);
+  drawCars(dt, now);
+  updateCamera(dt, now);
+  renderer.render(scene, camera);
+  updateTags();
+  requestAnimationFrame(loop);
+}
+
+document.getElementById("connect-btn").onclick = async () => {
+  const username = usernameInput.value.trim().replace(/^@/, ""), apiKey = apikeyInput.value.trim();
+  if (!username) { usernameInput.focus(); return; }
+  save("tt_username", username); save("tt_apikey", apiKey);
+  liveUser = username; liveKey = apiKey; wantConnected = true;
+  document.getElementById("setup").style.display = "none";
+  await boot(); openSocket();
+};
+document.getElementById("test-btn").onclick = async () => {
+  testing = true; document.body.classList.add("testing");
+  document.getElementById("setup").style.display = "none";
+  setStatus("🧪", "on"); await boot();
+  document.getElementById("viewers").textContent = "👁 " + 120;
+};
+
+// test buttons
+const names = ["Sara", "Omar", "Noura", "Faisal", "Lama", "Khalid", "Reem", "Turki", "Hessa", "Majed", "Dana", "Yousef", "Abdullah", "Shahad", "Nasser"];
+let fakeN = 0;
+const fakeName = () => names[fakeN % names.length] + (fakeN++ >= names.length ? " " + Math.ceil(fakeN / names.length) : "");
+function fakeJoins(n) { for (let i = 0; i < n; i++) handleEvent("WebcastChatMessage", { user: { nickname: fakeName() }, comment: Math.random() < .5 ? "1" : "١" }); }
+document.getElementById("t-join10").onclick = () => fakeJoins(10);
+document.getElementById("t-join100").onclick = () => fakeJoins(100);
+document.getElementById("t-gift").onclick = () => {
+  const who = cars.length ? cars[Math.floor(Math.random() * cars.length)].name : fakeName();
+  const t = TIERS[1 + Math.floor(Math.random() * (TIERS.length - 1))];
+  handleEvent("WebcastGiftMessage", { user: { nickname: who }, giftDetails: { giftName: t.gift, diamondCount: t.coins, giftType: 2 }, repeatCount: 1 });
+};
+document.getElementById("t-likes").onclick = (e) => { autoLikes = !autoLikes; e.target.classList.toggle("on", autoLikes); };
+document.getElementById("t-chat").onclick = () => handleEvent("WebcastChatMessage", { user: { nickname: fakeName() }, comment: ["يلا يلا 🔥", "وين سيارتي؟", "الذهبي طاير 😂", "Let's go!!"][Math.floor(Math.random() * 4)] });
+document.getElementById("t-skip").onclick = skipPhase;
+
+document.querySelectorAll("[data-cam]").forEach(b => b.onclick = () => setCam(b.dataset.cam));
+const menu = document.getElementById("menu");
+document.getElementById("menu-btn").onclick = () => menu.style.display = "flex";
+document.getElementById("close-menu-btn").onclick = () => menu.style.display = "none";
+document.getElementById("skip-btn").onclick = () => { skipPhase(); menu.style.display = "none"; };
+document.getElementById("toggle-test-btn").onclick = () => { document.body.classList.toggle("testing"); menu.style.display = "none"; };
+document.getElementById("disconnect-btn").onclick = () => {
+  wantConnected = false; clearTimeout(reconnectTimer);
+  if (socket) { socket.onclose = null; socket.close(); socket = null; }
+  menu.style.display = "none"; document.getElementById("setup").style.display = "block";
+};
+const fsBtn = document.getElementById("fullscreen-btn");
+if (window.navigator.standalone || matchMedia("(display-mode: fullscreen)").matches || matchMedia("(display-mode: standalone)").matches) fsBtn.style.display = "none";
+fsBtn.onclick = () => {
+  const el = document.documentElement, req = el.requestFullscreen || el.webkitRequestFullscreen;
+  const tip = () => { fsBtn.textContent = "iPhone: Share ⬆️ → Add to Home Screen, then open from the new icon"; fsBtn.style.fontSize = "13px"; };
+  if (req && document.fullscreenEnabled !== false) { try { const r = req.call(el); if (r && r.catch) r.catch(tip); } catch (e) { tip(); } menu.style.display = "none"; } else tip();
+};
+window.__game = { handleEvent, skipPhase, get phase() { return phase; }, get cars() { return cars; } };
+</script>
+</body>
+</html>

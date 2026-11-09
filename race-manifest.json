@@ -1,0 +1,14 @@
+{
+  "name": "3D Race",
+  "short_name": "Race",
+  "start_url": "./race.html",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "portrait",
+  "background_color": "#0d0b14",
+  "theme_color": "#0d0b14",
+  "icons": [
+    { "src": "race-icon-180.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "race-icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
