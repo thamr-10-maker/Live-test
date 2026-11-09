@@ -141,6 +141,8 @@ const TARGET_LIKES = 10000;                          // likes needed to fill the
 const PHRASE_AR = "تقدرون تطلّعون الكورة؟";          // message above the jar (Arabic)
 const PHRASE_EN = "Can you get the ball out?";       // message above the jar (English)
 const RESET_SECONDS = 10;                            // after the ball escapes, the jar empties after this
+const HINT_AR = "اضغط لايك وشوف وش يصير";           // hint inside the empty jar (Arabic)
+const HINT_EN = "Tap like and see what happens";     // hint inside the empty jar (English)
 
 /* =========================================================
    PART 1: Canvas and jar shape
@@ -228,6 +230,26 @@ function surfaceY(fill) {
 /* =========================================================
    PART 3: Likes
    ========================================================= */
+// TikTok tells us the room's TOTAL likes with every like message.
+// We remember the total when the round started ("baseline"), so:
+//   likes this round = room total now − baseline
+// That way, if the game was paused or disconnected, it catches up on the likes it missed.
+let baseline = load("jar_baseline") === "" ? null : Number(load("jar_baseline"));
+let lastTotal = Number(load("jar_last_total")) || 0;
+
+function onLikeMessage(name, likeCount, roomTotal) {
+  let amount = likeCount;
+  if (roomTotal > 0) {
+    if (baseline === null || roomTotal < baseline) baseline = roomTotal - likeCount - likes; // first time, or a new live started
+    lastTotal = roomTotal;
+    if (state !== "filling") { baseline = roomTotal - likes; return; }   // likes during the celebration don't count
+    const caughtUp = roomTotal - baseline;
+    amount = Math.max(0, caughtUp - likes);
+    save("jar_baseline", baseline); save("jar_last_total", lastTotal);
+  }
+  if (amount > 0) onLikes(name, amount);
+}
+
 function onLikes(name, amount) {
   if (state !== "filling") return;
   likes += amount;
@@ -250,6 +272,7 @@ function onLikes(name, amount) {
 
 function resetJar() {
   likes = 0; save("jar_likes", 0);
+  if (lastTotal) { baseline = lastTotal; save("jar_baseline", baseline); }
   state = "filling";
   falling.length = 0; confetti.length = 0;
 }
@@ -336,6 +359,34 @@ function drawPhrase(now) {
   ctx.restore();
 }
 
+// "Tap like and see what happens" – shown in the empty space inside the jar, fades as it fills
+function drawHint(now) {
+  const surf = surfaceY(shownFill);
+  const space = surf - (JAR.bodyTop + 10);
+  if (space < 130) return;                       // not enough empty space left – hide it
+  const alpha = Math.min(1, (space - 130) / 80);
+  const y = JAR.bodyTop + 10 + space / 2;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  // tapping finger + heart
+  const tap = Math.abs(Math.sin(now / 350));
+  ctx.font = "44px serif";
+  ctx.fillText("❤️", JAR.cx + 18, y - 48);
+  ctx.font = "40px serif";
+  ctx.fillText("👆", JAR.cx - 22, y - 30 + tap * 10);
+  // text
+  ctx.shadowColor = "rgba(0,0,0,0.6)"; ctx.shadowBlur = 8;
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "800 20px system-ui, -apple-system, 'Segoe UI', Tahoma, sans-serif";
+  ctx.direction = "rtl"; ctx.fillText(HINT_AR + " 👀", JAR.cx, y + 14);
+  ctx.direction = "ltr";
+  ctx.fillStyle = "#ffd6e0";
+  ctx.font = "700 16px system-ui, -apple-system, 'Segoe UI', sans-serif";
+  ctx.fillText(HINT_EN + " 👀", JAR.cx, y + 42);
+  ctx.restore();
+}
+
 function burstConfetti(x, y) {
   for (let i = 0; i < 60; i++) {
     const a = Math.random() * Math.PI * 2, s = 3 + Math.random() * 7;
@@ -374,6 +425,7 @@ function frame(now) {
   }
 
   drawJarGlass();
+  if (state === "filling") drawHint(now);
 
   // ball
   if (state === "filling" || state === "draining") {
@@ -421,7 +473,7 @@ function startEscape() {
   a.classList.add("show");
   setTimeout(() => a.classList.remove("show"), 5000);
   setTimeout(() => { state = "out"; }, 1500);
-  setTimeout(() => { likes = 0; save("jar_likes", 0); state = "draining"; }, RESET_SECONDS * 1000);
+  setTimeout(() => { resetJar(); state = "draining"; }, RESET_SECONDS * 1000);
 }
 
 /* =========================================================
@@ -470,7 +522,7 @@ function nameOf(user) { return (user && (user.nickname || user.uniqueId)) || "?"
 function handleEvent(type, data) {
   if (!type || !data) return;
   if (type.includes("RoomUserSeqMessage")) onRoomInfo(data);
-  else if (type.includes("LikeMessage")) onLikes(nameOf(data.user), Number(data.likeCount) || 1);
+  else if (type.includes("LikeMessage")) onLikeMessage(nameOf(data.user), Number(data.likeCount) || 1, Number(data.totalLikeCount) || 0);
   else if (type.includes("ChatMessage")) onChat(nameOf(data.user), data.comment);
   else if (type.includes("MemberMessage")) onJoin(nameOf(data.user));
   else if (type.includes("SocialMessage")) {
@@ -501,23 +553,60 @@ function startGame() {
   if (!started) { started = true; requestAnimationFrame(frame); }
 }
 
+// ---------- Connection that fixes itself ----------
+let wantConnected = false;     // true while the streamer wants to be live
+let reconnectTimer = null, retryDelay = 2000, lastMessageAt = 0;
+let liveUser = "", liveKey = "";
+
 function connect() {
   const username = usernameInput.value.trim().replace(/^@/, "");
   const apiKey = apikeyInput.value.trim();
   if (!username) { usernameInput.focus(); return; }
   save("tt_username", username); save("tt_apikey", apiKey);
+  liveUser = username; liveKey = apiKey;
+  wantConnected = true;
   startGame();
-  setStatus("@" + username + " …");
-  const url = "wss://ws.eulerstream.com?uniqueId=" + encodeURIComponent(username) + (apiKey ? "&apiKey=" + encodeURIComponent(apiKey) : "");
-  try { socket = new WebSocket(url); } catch (e) { setStatus("✕", "err"); return; }
-  socket.onopen = () => setStatus("@" + username, "on");
-  socket.onmessage = (e) => { if (typeof e.data === "string") handleMessage(e.data); };
-  socket.onclose = (e) => {
-    const reasons = { 4401: "Wrong API key", 4404: "@" + username + " is not live", 4429: "Too many connections", 4005: "Live ended" };
-    setStatus(reasons[e.code] || "Disconnected (" + e.code + ")", "err");
-  };
-  socket.onerror = () => setStatus("Connection error", "err");
+  openSocket();
 }
+
+function openSocket() {
+  clearTimeout(reconnectTimer);
+  if (socket) { socket.onclose = null; socket.onerror = null; try { socket.close(); } catch (e) {} socket = null; }
+  setStatus("@" + liveUser + " …");
+  const url = "wss://ws.eulerstream.com?uniqueId=" + encodeURIComponent(liveUser) + (liveKey ? "&apiKey=" + encodeURIComponent(liveKey) : "");
+  try { socket = new WebSocket(url); } catch (e) { scheduleReconnect(5000); return; }
+  socket.onopen = () => { setStatus("@" + liveUser, "on"); retryDelay = 2000; lastMessageAt = Date.now(); };
+  socket.onmessage = (e) => { lastMessageAt = Date.now(); if (typeof e.data === "string") handleMessage(e.data); };
+  socket.onclose = (e) => {
+    socket = null;
+    if (!wantConnected) return;
+    if (e.code === 4401) { setStatus("Wrong API key", "err"); return; }        // no point retrying
+    if (e.code === 4404) { setStatus("Not live yet – retrying…", "err"); scheduleReconnect(10000); return; }
+    if (e.code === 4429) { setStatus("Too many connections – waiting…", "err"); scheduleReconnect(30000); return; }
+    setStatus("↻ Reconnecting…", "err");
+    scheduleReconnect(retryDelay);
+    retryDelay = Math.min(retryDelay * 2, 15000);
+  };
+  socket.onerror = () => {};   // onclose handles everything
+}
+
+function scheduleReconnect(ms) {
+  clearTimeout(reconnectTimer);
+  reconnectTimer = setTimeout(() => { if (wantConnected && !document.hidden) openSocket(); }, ms);
+}
+
+// Coming back to the game (for example from TikTok): reconnect right away if needed
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden && wantConnected && (!socket || socket.readyState > 1)) { retryDelay = 2000; openSocket(); }
+});
+
+// Watchdog: if nothing arrives for 45 seconds, the connection is probably dead – reconnect
+setInterval(() => {
+  if (wantConnected && !document.hidden && socket && socket.readyState === 1 && Date.now() - lastMessageAt > 45000) {
+    setStatus("↻ Reconnecting…", "err");
+    openSocket();
+  }
+}, 5000);
 
 // Test buttons
 const fakeNames = ["Sara", "Omar", "Noura", "Faisal", "Lama", "Khalid"];
@@ -541,6 +630,7 @@ document.getElementById("close-menu-btn").onclick = () => menu.style.display = "
 document.getElementById("reset-btn").onclick = () => { resetJar(); menu.style.display = "none"; };
 document.getElementById("toggle-test-btn").onclick = () => { document.body.classList.toggle("testing"); menu.style.display = "none"; };
 document.getElementById("disconnect-btn").onclick = () => {
+  wantConnected = false; clearTimeout(reconnectTimer);
   if (socket) { socket.onclose = null; socket.close(); socket = null; }
   save("jar_likes", likes);
   menu.style.display = "none";

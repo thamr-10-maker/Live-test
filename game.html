@@ -763,23 +763,56 @@ function startGame() {
   buildTower();
 }
 
+// ---------- Connection that fixes itself ----------
+let wantConnected = false, reconnectTimer = null, retryDelay = 2000, lastMessageAt = 0;
+let liveUser = "", liveKey = "";
+
 function connect() {
   const username = usernameInput.value.trim().replace(/^@/, "");
   const apiKey = apikeyInput.value.trim();
   if (!username) { usernameInput.focus(); return; }
   save("tt_username", username); save("tt_apikey", apiKey);
+  liveUser = username; liveKey = apiKey; wantConnected = true;
   startGame();
-  setStatus("@" + username + " …");
-  const url = "wss://ws.eulerstream.com?uniqueId=" + encodeURIComponent(username) + (apiKey ? "&apiKey=" + encodeURIComponent(apiKey) : "");
-  try { socket = new WebSocket(url); } catch (e) { setStatus("✕", "err"); return; }
-  socket.onopen = () => setStatus("@" + username, "on");
-  socket.onmessage = (e) => { if (typeof e.data === "string") handleMessage(e.data); };
-  socket.onclose = (e) => {
-    const reasons = { 4401: "Wrong API key", 4404: "@" + username + " is not live", 4429: "Too many connections", 4005: "Live ended" };
-    setStatus(reasons[e.code] || "Disconnected (" + e.code + ")", "err");
-  };
-  socket.onerror = () => setStatus("Connection error", "err");
+  openSocket();
 }
+
+function openSocket() {
+  clearTimeout(reconnectTimer);
+  if (socket) { socket.onclose = null; socket.onerror = null; try { socket.close(); } catch (e) {} socket = null; }
+  setStatus("@" + liveUser + " …");
+  const url = "wss://ws.eulerstream.com?uniqueId=" + encodeURIComponent(liveUser) + (liveKey ? "&apiKey=" + encodeURIComponent(liveKey) : "");
+  try { socket = new WebSocket(url); } catch (e) { scheduleReconnect(5000); return; }
+  socket.onopen = () => { setStatus("@" + liveUser, "on"); retryDelay = 2000; lastMessageAt = Date.now(); };
+  socket.onmessage = (e) => { lastMessageAt = Date.now(); if (typeof e.data === "string") handleMessage(e.data); };
+  socket.onclose = (e) => {
+    socket = null;
+    if (!wantConnected) return;
+    if (e.code === 4401) { setStatus("Wrong API key", "err"); return; }
+    if (e.code === 4404) { setStatus("Not live yet – retrying…", "err"); scheduleReconnect(10000); return; }
+    if (e.code === 4429) { setStatus("Too many connections – waiting…", "err"); scheduleReconnect(30000); return; }
+    setStatus("↻ Reconnecting…", "err");
+    scheduleReconnect(retryDelay);
+    retryDelay = Math.min(retryDelay * 2, 15000);
+  };
+  socket.onerror = () => {};
+}
+
+function scheduleReconnect(ms) {
+  clearTimeout(reconnectTimer);
+  reconnectTimer = setTimeout(() => { if (wantConnected && !document.hidden) openSocket(); }, ms);
+}
+
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden && wantConnected && (!socket || socket.readyState > 1)) { retryDelay = 2000; openSocket(); }
+});
+
+setInterval(() => {
+  if (wantConnected && !document.hidden && socket && socket.readyState === 1 && Date.now() - lastMessageAt > 45000) {
+    setStatus("↻ Reconnecting…", "err");
+    openSocket();
+  }
+}, 5000);
 
 // Test buttons: one per weapon
 const fakeNames = ["Sara", "Omar", "Noura", "Faisal", "Lama", "Khalid"];
@@ -839,6 +872,7 @@ function showIphoneTip() {
 document.getElementById("rebuild-btn").onclick = () => { buildTower(); menu.style.display = "none"; };
 document.getElementById("toggle-test-btn").onclick = () => { document.body.classList.toggle("testing"); menu.style.display = "none"; };
 document.getElementById("disconnect-btn").onclick = () => {
+  wantConnected = false; clearTimeout(reconnectTimer);
   if (socket) { socket.onclose = null; socket.close(); socket = null; }
   menu.style.display = "none";
   document.body.classList.remove("testing");
