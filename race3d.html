@@ -13,7 +13,11 @@
   #hud { position: absolute; top: 0; left: 0; right: 0; padding: calc(8px + env(safe-area-inset-top)) 10px 8px; pointer-events: none; color: #fff; }
   #fps { display: inline-block; background: rgba(0,0,0,.55); padding: 4px 10px; border-radius: 12px; font-size: 13px; font-weight: 700; }
   #board { margin-top: 8px; background: rgba(0,0,0,.45); border-radius: 12px; padding: 6px 10px; font-size: 13px; line-height: 1.6; width: fit-content; min-width: 140px; }
-  #controls { position: absolute; left: 0; right: 0; bottom: 0; padding: 8px 8px calc(12px + env(safe-area-inset-bottom)); display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; background: rgba(0,0,0,.35); }
+  #cams { position: absolute; left: 0; right: 0; bottom: calc(62px + env(safe-area-inset-bottom)); padding: 0 8px 6px; display: grid; grid-template-columns: repeat(6, 1fr); gap: 5px; }
+  #cams button { padding: 7px 0; border: 0; border-radius: 9px; font-size: 18px; background: rgba(0,0,0,.45); color: #fff; line-height: 1; }
+  #cams button small { display: block; font-size: 9px; font-weight: 700; margin-top: 2px; opacity: .85; }
+  #cams button.on { background: #ff3b6b; }
+  #controls { position: absolute; left: 0; right: 0; bottom: 0; padding: 8px 8px calc(12px + env(safe-area-inset-bottom)); display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; background: rgba(0,0,0,.35); }
   #controls button { padding: 11px 0; border: 0; border-radius: 10px; font-size: 14px; font-weight: 700; background: rgba(255,255,255,.92); color: #222; }
   #controls button.on { background: #ff3b6b; color: #fff; }
   #loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 18px; font-weight: 700; background: #1d2a3a; }
@@ -35,8 +39,15 @@
   <button data-n="100" class="on">100</button>
   <button data-n="300">300</button>
   <button data-n="500">500</button>
-  <button id="cam-btn">🎥</button>
   <button id="boost-btn">🔥</button>
+</div>
+<div id="cams">
+  <button data-cam="overview" class="on">🗺️<small>ALL</small></button>
+  <button data-cam="leader">🥇<small>1st</small></button>
+  <button data-cam="front">👀<small>FACE</small></button>
+  <button data-cam="middle">🚗<small>MID</small></button>
+  <button data-cam="rear">🐢<small>LAST</small></button>
+  <button data-cam="orbit">🔄<small>360</small></button>
 </div>
 
 <script type="module">
@@ -279,23 +290,50 @@ function update(dt, now) {
 /* =========================================================
    PART 5: Camera – overview of the whole track, or follow the leader
    ========================================================= */
-let follow = false;
-const camPos = new THREE.Vector3(), camLook = new THREE.Vector3();
-function updateCamera(dt) {
+// Camera modes (buttons at the bottom):
+//   overview = whole track · leader = behind 1st place · front = in front of 1st, looking back at it
+//   middle = behind the car in the middle of the pack · rear = behind the last car · orbit = slow 360° flight
+let camMode = "overview";
+let ranked = [];                       // cars sorted 1st → last (updated a few times per second)
+const camPos = new THREE.Vector3(0, 150, 235), camLook = new THREE.Vector3(0, 0, -22);
+const wantPos = new THREE.Vector3(), wantLook = new THREE.Vector3();
+const p1 = {}, p2 = {};
+
+function rankCars() { ranked = [...cars].sort((a, b) => b.s - a.s); }
+setInterval(rankCars, 250);
+
+function chase(car, behind, height) {           // camera behind a car, looking at it
+  trackAt(car.s - behind, car.d * 0.5, p1); trackAt(car.s + 6, car.d, p2);
+  wantPos.set(p1.x, height, p1.z); wantLook.set(p2.x, 1, p2.z);
+}
+
+function updateCamera(dt, now) {
   const portrait = window.innerHeight > window.innerWidth;
-  if (!follow) {
-    camPos.set(0, portrait ? 150 : 110, portrait ? 235 : 170);   // tilted, like a TV camera in the stands
-    camLook.set(0, 0, portrait ? -22 : -10);
-  } else {
-    const leader = cars.reduce((a, b) => (b.s > a.s ? b : a), cars[0]);
-    trackAt(leader.s, 0, tmp);
-    const back = trackAt(leader.s - 28, 0, {});
-    camPos.lerp(new THREE.Vector3(back.x, 24, back.z), 0.08);
-    camLook.lerp(new THREE.Vector3(tmp.x, 0, tmp.z), 0.15);
-    camera.position.copy(camPos); camera.lookAt(camLook);
-    return;
+  if (!ranked.length) rankCars();
+  let ease = 0.06;
+  if (camMode === "overview") {
+    wantPos.set(0, portrait ? 150 : 110, portrait ? 235 : 170);
+    wantLook.set(0, 0, portrait ? -22 : -10);
+  } else if (camMode === "leader") {
+    chase(ranked[0], 26, 16);
+  } else if (camMode === "front") {
+    const car = ranked[0];
+    trackAt(car.s + 26, car.d, p1); trackAt(car.s, car.d, p2);
+    wantPos.set(p1.x, 10, p1.z); wantLook.set(p2.x, 1, p2.z);
+    ease = 0.1;
+  } else if (camMode === "middle") {
+    chase(ranked[Math.floor(ranked.length / 2)], 30, 20);
+  } else if (camMode === "rear") {
+    chase(ranked[ranked.length - 1], 24, 14);
+  } else if (camMode === "orbit") {
+    const a = now / 9000;
+    wantPos.set(Math.sin(a) * 170, 70, Math.cos(a) * 200);
+    wantLook.set(0, 0, 0);
+    ease = 0.04;
   }
-  camera.position.lerp(camPos, 0.1);
+  camPos.lerp(wantPos, Math.min(1, ease * dt));
+  camLook.lerp(wantLook, Math.min(1, ease * 1.6 * dt));
+  camera.position.copy(camPos);
   camera.lookAt(camLook);
 }
 
@@ -341,22 +379,26 @@ let last = performance.now();
 function loop(now) {
   const dt = Math.min(3, (now - last) / 16.67); last = now;
   update(dt, now);
-  updateCamera(dt);
+  updateCamera(dt, now);
   renderer.render(scene, camera);
   countFps(now);
   requestAnimationFrame(loop);
 }
-camera.position.set(0, 150, 235);
 requestAnimationFrame(loop);
 
 document.querySelectorAll("[data-n]").forEach(b => b.onclick = () => {
   document.querySelectorAll("[data-n]").forEach(x => x.classList.remove("on"));
   b.classList.add("on");
   makeCars(Number(b.dataset.n));
+  rankCars();
 });
-document.getElementById("cam-btn").onclick = (e) => { follow = !follow; e.target.classList.toggle("on", follow); };
+document.querySelectorAll("[data-cam]").forEach(b => b.onclick = () => {
+  document.querySelectorAll("[data-cam]").forEach(x => x.classList.remove("on"));
+  b.classList.add("on");
+  camMode = b.dataset.cam;
+});
 document.getElementById("boost-btn").onclick = () => { boostUntil = performance.now() + 3000; };
-window.__test = { setFollow: v => follow = v, makeCars };
+window.__test = { setCam: m => camMode = m, makeCars };
 </script>
 </body>
 </html>
