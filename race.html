@@ -12,12 +12,12 @@
 <link rel="apple-touch-icon" href="race-icon-180.png">
 <title>3D Race – TikTok LIVE Game</title>
 <style>
-  :root { --pink: #ff3b6b; --gold: #ffc23d; --green: #3dff8a; --card: rgba(15,14,25,.72); }
+  :root { --pink: #ff3b6b; --gold: #ffc23d; --green: #3dff8a; --card: rgba(15,14,25,.74); }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { height: 100%; overflow: hidden; background: #87b9e0; color: #fff; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+  html, body { height: 100%; overflow: hidden; background: #1b1f4b; color: #fff; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
   canvas { display: block; width: 100%; height: 100%; }
 
-  /* ---------- Setup screen ---------- */
+  /* ---------- Setup screen (only the streamer sees this) ---------- */
   #setup { position: absolute; inset: 0; z-index: 20; background: #0d0b14; padding: calc(24px + env(safe-area-inset-top)) 20px 24px; overflow-y: auto; }
   #setup > div { max-width: 480px; margin: 0 auto; }
   #setup h1 { font-size: 26px; margin-bottom: 6px; }
@@ -38,72 +38,83 @@
   #viewers { font-size: 13px; font-weight: 800; }
   #menu-btn { pointer-events: auto; padding: 5px 12px; font-size: 14px; background: var(--card); color: #fff; border: 0; border-radius: 14px; }
 
-  #phase { margin: 6px auto 0; width: fit-content; background: var(--card); border-radius: 16px; padding: 6px 16px; text-align: center; }
-  #phase-big { font-size: 26px; font-weight: 900; letter-spacing: .5px; }
+  #phase { margin: 4px auto 0; width: fit-content; background: var(--card); border-radius: 16px; padding: 4px 16px; text-align: center; border: 1px solid rgba(255,255,255,.12); }
+  #phase-big { font-size: 26px; font-weight: 900; letter-spacing: .5px; font-variant-numeric: tabular-nums; }
   #phase-small { font-size: 13px; font-weight: 700; opacity: .9; }
   #phase.hurry #phase-big { color: var(--pink); animation: pulse .6s infinite; }
   @keyframes pulse { 50% { transform: scale(1.12); } }
 
-  #join-hint { margin: 8px auto 0; width: fit-content; max-width: 94%; background: var(--pink); border-radius: 16px; padding: 6px 16px; text-align: center; font-weight: 800; line-height: 1.35; box-shadow: 0 6px 24px rgba(255,59,107,.45); }
-  #join-hint .ar { font-size: 19px; }
-  #join-hint .en { font-size: 13px; opacity: .92; }
+  .banner { margin: 6px auto 0; width: fit-content; max-width: 96%; background: linear-gradient(135deg, #ff3b6b, #ff7a3d); border-radius: 16px; padding: 5px 16px; text-align: center; font-weight: 800; line-height: 1.3; box-shadow: 0 6px 24px rgba(255,59,107,.45); }
+  .banner .ar { font-size: 18px; }
+  .banner .en { font-size: 12px; opacity: .94; }
+  .banner .rule { font-size: 11.5px; margin-top: 3px; border-top: 1px solid rgba(255,255,255,.35); padding-top: 3px; }
+  .banner.small .ar { font-size: 14px; } .banner.small .en { font-size: 11px; }
 
   /* catalog: gift picture ➜ car picture */
-  #catalog { margin: 8px auto 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; width: 100%; max-width: 380px; }
-  .chip { background: rgba(15,14,25,.9); border-radius: 10px; padding: 3px 4px; display: flex; align-items: center; justify-content: center; gap: 2px; }
+  #catalog { margin: 6px auto 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; width: 100%; max-width: 380px; }
+  .chip { background: rgba(15,14,25,.9); border: 1px solid rgba(255,255,255,.1); border-radius: 10px; padding: 3px 4px; display: flex; align-items: center; justify-content: center; gap: 2px; font-size: 17px; white-space: nowrap; }
   .chip .gicon { width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; font-size: 18px; }
   .chip .gicon img { width: 22px; height: 22px; object-fit: contain; }
   .chip .arr { font-size: 10px; opacity: .7; }
+  .chip .plus { font-size: 13px; }
   .chip img.car { width: 54px; height: 32px; object-fit: contain; }
   .chip.hit { animation: chipHit .7s; }
   @keyframes chipHit { 40% { transform: scale(1.18); background: var(--gold); } }
+  #champs { margin: 5px auto 0; width: fit-content; max-width: 96%; background: var(--card); border-radius: 12px; padding: 3px 12px; font-size: 13px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #champs:empty { display: none; }
 
-  /* race instructions + top 3 */
+  /* race: powers legend + top 3 */
   #race-ui { display: none; }
-  .hint { margin: 6px auto 0; width: fit-content; max-width: 96%; background: var(--pink); border-radius: 14px; padding: 4px 14px; text-align: center; font-weight: 800; line-height: 1.3; box-shadow: 0 6px 20px rgba(255,59,107,.4); }
-  .hint .ar { font-size: 16px; }
-  .hint .en { font-size: 11px; opacity: .92; }
-  #board { margin: 6px 0 0; width: fit-content; max-width: 70%; background: var(--card); border-radius: 12px; padding: 4px 10px; }
+  #powers { margin: 6px auto 0; display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; width: 100%; max-width: 380px; }
+  #powers .chip { font-size: 16px; padding: 4px 2px; }
+  #final { display: none; margin: 6px auto 0; width: fit-content; background: var(--gold); color: #1a1200; border-radius: 14px; padding: 4px 16px; font-weight: 900; font-size: 17px; animation: pulse .6s infinite; }
+  #board { margin: 6px 0 0; width: fit-content; max-width: 72%; background: var(--card); border-radius: 12px; padding: 4px 10px; border: 1px solid rgba(255,255,255,.1); }
   #board .row { display: flex; align-items: center; gap: 6px; font-size: 15px; font-weight: 800; height: 30px; }
   #board .row img { width: 46px; height: 28px; object-fit: contain; }
   #board .row span.n { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  #join-hint .rule { font-size: 12px; margin-top: 2px; opacity: .95; border-top: 1px solid rgba(255,255,255,.35); padding-top: 3px; }
-  #podium .next { margin-top: 12px; background: var(--pink); border-radius: 12px; padding: 6px 12px; font-weight: 800; line-height: 1.35; }
-  #podium .next .ar { font-size: 17px; } #podium .next .en { font-size: 12px; opacity: .92; }
-  body.hide-cams #cams { display: none; }
+
   #names { position: absolute; inset: 0; pointer-events: none; }
+  #flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; transition: opacity .5s; z-index: 4; }
+  #count { position: absolute; left: 50%; top: 44%; transform: translate(-50%, -50%); font-size: 150px; font-weight: 900; text-shadow: 0 8px 40px rgba(0,0,0,.6); pointer-events: none; display: none; z-index: 6; }
+  #count.pop { animation: countPop .9s ease-out; }
+  @keyframes countPop { 0% { transform: translate(-50%, -50%) scale(2.2); opacity: 0; } 25% { opacity: 1; } 100% { transform: translate(-50%, -50%) scale(1); opacity: .9; } }
 
   /* chat / join feed */
-  #feed { position: absolute; left: 8px; bottom: calc(108px + env(safe-area-inset-bottom)); width: 72%; display: flex; flex-direction: column; gap: 4px; pointer-events: none; }
+  #feed { position: absolute; z-index: 5; left: 8px; bottom: calc(62px + env(safe-area-inset-bottom)); width: 74%; display: flex; flex-direction: column; gap: 4px; pointer-events: none; }
+  body.testing #feed { bottom: calc(108px + env(safe-area-inset-bottom)); }
+  body.hide-cams:not(.testing) #feed { bottom: calc(14px + env(safe-area-inset-bottom)); }
   .feed-line { width: fit-content; max-width: 100%; background: var(--card); border-radius: 12px; padding: 4px 10px; font-size: 13px; line-height: 1.3; animation: feedIn .3s; transition: opacity .6s; overflow-wrap: anywhere; }
   .feed-line .n { font-weight: 800; color: #8fd3ff; margin: 0 3px; }
   .feed-line.join .n { color: var(--green); }
-  .feed-line.gift .n { color: var(--gold); }
+  .feed-line.gift { border: 1px solid var(--gold); } .feed-line.gift .n { color: var(--gold); }
   .feed-line.gone { opacity: 0; }
   @keyframes feedIn { from { opacity: 0; transform: translateY(6px); } }
 
-  #big-alert { position: absolute; left: 50%; top: 46%; transform: translate(-50%, -50%) scale(.6); background: var(--gold); color: #1a1200; padding: 10px 18px; border-radius: 18px; font-size: 20px; font-weight: 900; opacity: 0; transition: all .25s; display: flex; align-items: center; gap: 8px; white-space: nowrap; max-width: 94%; pointer-events: none; }
+  #big-alert { position: absolute; z-index: 6; left: 50%; top: 50%; transform: translate(-50%, -50%) scale(.6); background: linear-gradient(135deg, #ffd65a, #ffab2e); color: #1a1200; padding: 10px 18px; border-radius: 18px; font-size: 22px; font-weight: 900; opacity: 0; transition: all .25s; display: flex; align-items: center; gap: 8px; white-space: nowrap; max-width: 94%; pointer-events: none; box-shadow: 0 10px 40px rgba(255,180,40,.5); }
   #big-alert.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-  #big-alert .who { max-width: 150px; overflow: hidden; text-overflow: ellipsis; }
-  #big-alert img.car { width: 70px; height: 42px; object-fit: contain; }
-  #big-alert .gicon img { width: 28px; height: 28px; }
+  #big-alert .who { max-width: 140px; overflow: hidden; text-overflow: ellipsis; }
+  #big-alert img.car { width: 78px; height: 46px; object-fit: contain; }
+  #big-alert .gicon { display: inline-flex; font-size: 26px; } #big-alert .gicon img { width: 30px; height: 30px; }
 
-  #podium { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; pointer-events: none; }
+  #podium { position: absolute; z-index: 6; left: 0; right: 0; top: calc(98px + env(safe-area-inset-top)); display: none; justify-content: center; pointer-events: none; }
   #podium.show { display: flex; }
-  #podium > div { background: rgba(15,14,25,.85); border-radius: 22px; padding: 18px 22px; text-align: center; min-width: 260px; box-shadow: 0 10px 40px rgba(0,0,0,.4); }
-  #podium .row { display: flex; align-items: center; gap: 10px; font-size: 20px; font-weight: 800; margin: 6px 0; }
+  #podium > div { background: rgba(15,14,25,.82); border: 1px solid rgba(255,210,90,.5); border-radius: 22px; padding: 12px 20px; text-align: center; min-width: 270px; box-shadow: 0 10px 40px rgba(0,0,0,.4); }
+  #podium .row { display: flex; align-items: center; gap: 10px; font-size: 19px; font-weight: 800; margin: 4px 0; }
+  #podium .row:first-child { font-size: 24px; color: var(--gold); }
   #podium .row img { width: 64px; height: 38px; object-fit: contain; }
   #podium .row span.n { max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  #podium h2 { font-size: 34px; margin-bottom: 6px; }
+  #podium h2 { font-size: 30px; }
+  #podium .next { margin-top: 8px; background: var(--pink); border-radius: 12px; padding: 5px 12px; font-weight: 800; line-height: 1.35; }
+  #podium .next .ar { font-size: 16px; } #podium .next .en { font-size: 12px; opacity: .92; }
 
   /* camera buttons + test buttons */
-  #cams { position: absolute; left: 0; right: 0; bottom: calc(52px + env(safe-area-inset-bottom)); padding: 0 8px 6px; display: grid; grid-template-columns: repeat(6, 1fr); gap: 5px; }
-  #cams button { padding: 6px 0; border: 0; border-radius: 9px; font-size: 17px; background: rgba(0,0,0,.4); color: #fff; line-height: 1; }
+  #cams { position: absolute; z-index: 5; left: 0; right: 0; bottom: calc(8px + env(safe-area-inset-bottom)); padding: 0 8px 6px; display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  body.testing #cams { bottom: calc(52px + env(safe-area-inset-bottom)); }
+  body.hide-cams #cams { display: none; }
+  #cams button { padding: 6px 0; border: 0; border-radius: 9px; font-size: 16px; background: rgba(0,0,0,.4); color: #fff; line-height: 1; }
   #cams button.on { background: var(--pink); }
-  #test-bar { position: absolute; left: 0; right: 0; bottom: 0; padding: 6px 8px calc(8px + env(safe-area-inset-bottom)); display: none; grid-template-columns: repeat(6, 1fr); gap: 5px; background: rgba(0,0,0,.4); }
+  #test-bar { position: absolute; z-index: 5; left: 0; right: 0; bottom: 0; padding: 6px 8px calc(8px + env(safe-area-inset-bottom)); display: none; grid-template-columns: repeat(7, 1fr); gap: 4px; background: rgba(0,0,0,.4); }
   body.testing #test-bar { display: grid; }
-  body:not(.testing) #cams { bottom: calc(8px + env(safe-area-inset-bottom)); }
-  body:not(.testing) #feed { bottom: calc(62px + env(safe-area-inset-bottom)); }
   #test-bar button { padding: 9px 0; border: 0; border-radius: 9px; font-size: 13px; font-weight: 800; background: rgba(255,255,255,.92); color: #222; }
   #test-bar button.on { background: var(--pink); color: #fff; }
 
@@ -123,14 +134,14 @@
 <!-- ================= SETUP ================= -->
 <div id="setup"><div>
   <h1>🏁 3D Race</h1>
-  <p>Viewers type <b>1</b> to get a race car. Gifts upgrade the car before the race. During the race, each viewer's own likes are their gas pedal, and gifts give a nitro boost.</p>
+  <p>Viewers type <b>1</b> to get a race car. Gifts and follows upgrade it, and the car stays theirs for the whole live. In the race, each viewer's likes are their gas pedal and gifts fire power-ups: nitro, shield, rocket, lightning.</p>
   <label for="username">TikTok username (without @)</label>
   <input id="username" placeholder="example: ahmed_live" autocomplete="off" autocapitalize="off">
   <label for="apikey">Euler Stream API key</label>
   <input id="apikey" placeholder="paste your key here" autocomplete="off" autocapitalize="off">
   <button class="btn btn-main" id="connect-btn">Start game on LIVE</button>
   <button class="btn btn-soft" id="test-btn">Try test mode</button>
-  <p style="margin-top:14px;font-size:12px;text-align:center">Version 3 · lobby 5:00</p>
+  <p style="margin-top:14px;font-size:12px;text-align:center">Version 4 · lobby 5:00</p>
 </div></div>
 <div id="loading">Loading cars… 🏎️</div>
 
@@ -142,23 +153,29 @@
   </div>
   <div id="phase"><div id="phase-big"></div><div id="phase-small"></div></div>
   <div id="lobby-ui">
-    <div id="join-hint"><div class="ar">اكتب 1 وخذ سيارتك 🏎️</div><div class="en">Type 1 to get your race car</div>
-      <div class="rule"><div dir="rtl">بالسباق: اللايك بنزين ⛽ والهدية نيترو 🔥</div>In the race: likes = gas · gifts = nitro</div></div>
+    <div class="banner"><div class="ar" dir="rtl">اكتب 1 وخذ سيارتك 🏎️</div><div class="en">Type 1 to get your race car</div>
+      <div class="rule"><div dir="rtl">الهدية تطوّر سيارتك وتبقى معك طول اللايف ✨</div>Gifts upgrade your car · it stays yours all live</div></div>
     <div id="catalog"></div>
+    <div id="champs"></div>
   </div>
   <div id="race-ui">
-    <div class="hint"><div class="ar" dir="rtl">اكتب 1 وادخل السباق الحين 🏎️</div><div class="ar" dir="rtl">اضغط لايك ❤️ بنزين لسيارتك ⛽</div><div class="ar" dir="rtl">أرسل هدية 🎁 نيترو 🔥</div><div class="en">Type 1 to join · like = gas · gift = nitro</div></div>
+    <div id="powers"></div>
+    <div class="banner small"><div class="ar" dir="rtl">اكتب 1 وادخل السباق · اللايك بنزين ⛽</div><div class="en">Type 1 to join · your likes are your gas</div></div>
+    <div id="final">🔥 ❤️ ×2 🔥</div>
     <div id="board"></div>
   </div>
 </div>
 <canvas id="names"></canvas>
+<div id="flash"></div>
+<div id="count"></div>
 <div id="feed"></div>
 <div id="big-alert"></div>
 <div id="podium"><div><h2>🏆</h2><div id="podium-rows"></div>
-  <div class="next"><div class="ar">اكتب 1 للسباق الجاي 🏎️</div><div class="en">Type 1 for the next race</div></div></div></div>
+  <div class="next"><div class="ar" dir="rtl">اكتب 1 للسباق الجاي 🏎️</div><div class="en">Type 1 for the next race</div></div></div></div>
 
 <div id="cams">
-  <button data-cam="overview" class="on">🗺️</button>
+  <button data-cam="auto" class="on">🎬</button>
+  <button data-cam="overview">🗺️</button>
   <button data-cam="leader">🥇</button>
   <button data-cam="front">👀</button>
   <button data-cam="middle">🚗</button>
@@ -169,14 +186,16 @@
   <button id="t-join10">+10</button>
   <button id="t-join100">+100</button>
   <button id="t-gift">🎁</button>
-  <button id="t-likes" class="on">❤️ auto</button>
-  <button id="t-chat">💬</button>
+  <button id="t-rocket">🚀</button>
+  <button id="t-storm">⚡</button>
+  <button id="t-likes" class="on">❤️</button>
   <button id="t-skip">⏭</button>
 </div>
 
 <div id="menu"><div>
   <button class="btn btn-soft" id="fullscreen-btn">⛶ Full screen</button>
   <button class="btn btn-soft" id="skip-btn">⏭ Skip to next phase</button>
+  <button class="btn btn-soft" id="sound-btn">🔊 Sound: on</button>
   <button class="btn btn-soft" id="toggle-cams-btn">🎥 Show / hide camera buttons</button>
   <button class="btn btn-soft" id="toggle-test-btn">🧪 Show / hide test buttons</button>
   <button class="btn btn-soft" id="disconnect-btn">✕ Disconnect</button>
@@ -192,48 +211,122 @@ import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
    SETTINGS – change these to tune the game
    ========================================================= */
 const LOBBY_SECONDS = 300;     // time to join + upgrade before each race (5 minutes)
+const COUNTDOWN_SECONDS = 5;   // red start lights
 const RACE_SECONDS = 150;      // race length (2:30). Furthest car when time is up wins.
-const PODIUM_SECONDS = 15;     // how long the winners are shown
+const FINAL_SECONDS = 30;      // last part of the race: every like counts double
+const PODIUM_SECONDS = 20;     // how long the winners are shown
 const MAX_CARS = 500;
-const LIKES_FOR_FULL_GAS = 6;  // likes per second a viewer needs for full speed
+const LIKES_FOR_FULL_GAS = 3;  // likes per second a viewer needs for full speed
 
-// Car tiers, cheapest first. "coins" = gift price needed (total of a combo counts).
+// Car tiers, cheapest first. "coins" = total coins a viewer has gifted in this live.
 // "gift"/"icon" = the gift shown in the catalog. "speed" = how much each like pushes this car.
+// "glow" = color of the light trail behind the best cars.
 const TIERS = [
   { model: "race",       paint: 0x9aa0a8, coins: 0,    gift: "",             icon: "1️⃣", speed: 1.00 },
-  { model: "race",       paint: 0xf4f4f4, coins: 1,    gift: "Rose",         icon: "🌹", speed: 1.10 },
+  { model: "race",       paint: 0xf4f4f4, coins: 1,    gift: "Rose",         icon: "🌹", speed: 1.10, follow: true },
   { model: "race",       paint: 0x2fbf71, coins: 5,    gift: "Finger Heart", icon: "🫰", speed: 1.20 },
   { model: "race",       paint: 0x2f6bff, coins: 30,   gift: "Doughnut",     icon: "🍩", speed: 1.30 },
   { model: "race",       paint: 0xff8a1f, coins: 100,  gift: "Hand Hearts",  icon: "🫶", speed: 1.45 },
-  { model: "race",       paint: 0xe8262f, coins: 299,  gift: "Corgi",        icon: "🐶", speed: 1.60 },
-  { model: "raceFuture", paint: 0x23252b, coins: 500,  gift: "Money Gun",    icon: "💸", speed: 1.80 },
-  { model: "raceFuture", paint: 0x7b3dff, coins: 1000, gift: "Galaxy",       icon: "🌌", speed: 2.05 },
-  { model: "raceFuture", paint: 0xf5c518, coins: 5000, gift: "Lion",         icon: "🦁", speed: 2.40 },
+  { model: "race",       paint: 0xe8262f, coins: 299,  gift: "Corgi",        icon: "🐶", speed: 1.60, glow: 0xff4040 },
+  { model: "raceFuture", paint: 0x23252b, coins: 500,  gift: "Money Gun",    icon: "💸", speed: 1.80, glow: 0x3de0ff },
+  { model: "raceFuture", paint: 0x7b3dff, coins: 1000, gift: "Galaxy",       icon: "🌌", speed: 2.05, glow: 0xb070ff },
+  { model: "raceFuture", paint: 0xf5c518, coins: 5000, gift: "Lion",         icon: "🦁", speed: 2.40, glow: 0xffd040 },
+];
+
+// What a gift does DURING the race (by the price of that gift). Shown as pictures on screen.
+const POWERS = [
+  { min: 1,    id: "nitro",  icon: "🔥",   gift: "Rose",        emoji: "🌹" },   // speed boost
+  { min: 10,   id: "shield", icon: "🛡️",  gift: "Doughnut",    emoji: "🍩" },   // shield + boost
+  { min: 100,  id: "rocket", icon: "🚀🥇", gift: "Hand Hearts", emoji: "🫶" },   // rocket hits the leader
+  { min: 1000, id: "storm",  icon: "⚡",   gift: "Galaxy",      emoji: "🌌" },   // lightning slows everyone else
 ];
 
 /* =========================================================
-   PART 1: 3D scene
+   PART 1: Sounds (made in code, no files)
+   ========================================================= */
+let actx = null, soundOn = true, lastJoinSound = 0;
+function initAudio() { try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); if (actx.state === "suspended") actx.resume(); } catch (e) {} }
+function tone(freq, dur, type, vol, slideTo) {
+  if (!actx || !soundOn) return;
+  try {
+    const t = actx.currentTime, o = actx.createOscillator(), g = actx.createGain();
+    o.type = type || "sine"; o.frequency.setValueAtTime(freq, t);
+    if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t + dur);
+    g.gain.setValueAtTime(vol || 0.12, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    o.connect(g); g.connect(actx.destination); o.start(t); o.stop(t + dur);
+  } catch (e) {}
+}
+function noise(dur, vol, freq) {
+  if (!actx || !soundOn) return;
+  try {
+    const n = Math.floor(actx.sampleRate * dur), buf = actx.createBuffer(1, n, actx.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / n);
+    const src = actx.createBufferSource(), f = actx.createBiquadFilter(), g = actx.createGain();
+    src.buffer = buf; f.type = "lowpass"; f.frequency.value = freq || 800; g.gain.value = vol || 0.2;
+    src.connect(f); f.connect(g); g.connect(actx.destination); src.start();
+  } catch (e) {}
+}
+const sfx = {
+  join() { const n = Date.now(); if (n - lastJoinSound < 150) return; lastJoinSound = n; tone(660, 0.08, "triangle", 0.06); },
+  upgrade() { tone(523, 0.1, "triangle"); setTimeout(() => tone(784, 0.15, "triangle"), 90); setTimeout(() => tone(1047, 0.25, "triangle"), 190); },
+  beep() { tone(440, 0.2, "square", 0.08); },
+  go() { tone(880, 0.7, "square", 0.1); },
+  nitro() { noise(0.5, 0.12, 1500); tone(200, 0.5, "sawtooth", 0.05, 900); },
+  rocket() { tone(300, 0.7, "sawtooth", 0.07, 1500); },
+  boom() { noise(0.6, 0.3, 300); },
+  storm() { noise(1.3, 0.35, 180); },
+  box() { tone(988, 0.08, "square", 0.05); setTimeout(() => tone(1319, 0.12, "square", 0.05), 70); },
+  win() { [523, 659, 784, 1047, 1319].forEach((f, i) => setTimeout(() => tone(f, 0.35, "triangle", 0.13), i * 150)); },
+};
+
+/* =========================================================
+   PART 2: 3D world – sunset sky, desert, palms, stands, lights
    ========================================================= */
 const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+let pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+renderer.setPixelRatio(pixelRatio);
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.prepend(renderer.domElement);
 
+const HORIZON = 0xf5a971;
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x87b9e0);
-scene.fog = new THREE.Fog(0x87b9e0, 450, 950);
-const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 1, 1600);
-scene.add(new THREE.HemisphereLight(0xffffff, 0x8a7a5a, 1.6));
-const sun = new THREE.DirectionalLight(0xffffff, 1.6); sun.position.set(60, 120, 40); scene.add(sun);
+scene.background = new THREE.Color(HORIZON);
+scene.fog = new THREE.Fog(HORIZON, 480, 1500);
+const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 2, 4000);
+scene.add(new THREE.HemisphereLight(0xfff0e0, 0x7a5a4a, 1.7));
+const sun = new THREE.DirectionalLight(0xffcf9a, 1.5); sun.position.set(-60, 70, -200); scene.add(sun);
 window.addEventListener("resize", () => {
   camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
+{ // sky dome: deep blue on top → purple → orange at the horizon
+  const g = new THREE.SphereGeometry(3000, 24, 16);
+  const pos = g.getAttribute("position"), col = new Float32Array(pos.count * 3);
+  const stops = [[0, new THREE.Color(HORIZON)], [0.12, new THREE.Color(0xf07f6e)], [0.3, new THREE.Color(0x8a4f96)], [0.6, new THREE.Color(0x2c2a6e)], [1, new THREE.Color(0x121440)]];
+  const c = new THREE.Color();
+  for (let i = 0; i < pos.count; i++) {
+    const h = Math.max(0, pos.getY(i) / 3000);
+    let k = 0; while (k < stops.length - 2 && h > stops[k + 1][0]) k++;
+    const t = Math.min(1, (h - stops[k][0]) / (stops[k + 1][0] - stops[k][0]));
+    c.copy(stops[k][1]).lerp(stops[k + 1][1], t);
+    col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
+  }
+  g.setAttribute("color", new THREE.BufferAttribute(col, 3));
+  scene.add(new THREE.Mesh(g, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: false, depthWrite: false })));
+  const sunDisc = new THREE.Mesh(new THREE.CircleGeometry(170, 40), new THREE.MeshBasicMaterial({ color: 0xfff1c9, fog: false }));
+  sunDisc.position.set(-500, 190, -2600); scene.add(sunDisc);
+  const halo = new THREE.Mesh(new THREE.CircleGeometry(330, 40), new THREE.MeshBasicMaterial({ color: 0xffc98a, fog: false, transparent: true, opacity: 0.35 }));
+  halo.position.set(-500, 190, -2610); scene.add(halo);
+}
+
 /* ---------- Track: two straights + two half circles ---------- */
 const L = 200, R = 46, HALF_W = 13, LANES = 9;
 const LOOP = 2 * L + 2 * Math.PI * R;
+const START = 170;                    // the start line, near the end of the right straight
+const GRID_GAP = 5.5;
 const laneD = i => -HALF_W + 1.8 + i * ((HALF_W * 2 - 3.6) / (LANES - 1));
+const LANE_ORDER = [4, 3, 5, 2, 6, 1, 7, 0, 8];   // grid fills from the middle lanes outward
 
 function trackAt(s, d, out) {
   s = ((s % LOOP) + LOOP) % LOOP;
@@ -246,9 +339,9 @@ function trackAt(s, d, out) {
   return out;
 }
 
-function stripMesh(d1, d2, y, color, dashEvery) {
+function stripMesh(d1, d2, y, color, dashEvery, color2) {
   const pos = [], idx = [], col = [], steps = 400, a = {}, b = {};
-  const c1 = new THREE.Color(color), c2 = new THREE.Color(0xffffff);
+  const c1 = new THREE.Color(color), c2 = new THREE.Color(color2 === undefined ? 0xffffff : color2);
   for (let i = 0; i <= steps; i++) {
     const s = (i / steps) * LOOP;
     trackAt(s, d1, a); trackAt(s, d2, b);
@@ -263,35 +356,156 @@ function stripMesh(d1, d2, y, color, dashEvery) {
   g.setIndex(idx); g.computeVertexNormals();
   return new THREE.Mesh(g, new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }));
 }
-const ground = new THREE.Mesh(new THREE.PlaneGeometry(1600, 1600), new THREE.MeshLambertMaterial({ color: 0xdcc59a }));
-ground.rotation.x = -Math.PI / 2; ground.position.y = -0.05; scene.add(ground);
-scene.add(stripMesh(-R + 0.5, -HALF_W - 1, 0.0, 0x6fae4f));
-scene.add(stripMesh(-HALF_W, HALF_W, 0.02, 0x3d4049));
-scene.add(stripMesh(-HALF_W - 1.4, -HALF_W, 0.03, 0xd8392f, 3));
-scene.add(stripMesh(HALF_W, HALF_W + 1.4, 0.03, 0xd8392f, 3));
-for (let i = 0; i < LANES - 1; i++) { const d = (laneD(i) + laneD(i + 1)) / 2; scene.add(stripMesh(d - 0.12, d + 0.12, 0.04, 0x3d4049, 2)); }
-for (let i = 0; i < 26; i++) for (let j = 0; j < 2; j++) {
-  const sq = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ color: (i + j) % 2 ? 0xffffff : 0x111111 }));
-  sq.rotation.x = -Math.PI / 2; sq.position.set(R - HALF_W + 0.5 + i, 0.05, L / 2 - 1 + j); scene.add(sq);
+const flat = (geo, color, x, y, z) => { const m = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color })); m.rotation.x = -Math.PI / 2; m.position.set(x, y, z); scene.add(m); return m; };
+
+flat(new THREE.PlaneGeometry(7000, 7000), 0xd9b27c, 0, -0.06, 0);                      // sand
+{ // infield grass with a small lake
+  const r = R - HALF_W - 1.2;
+  flat(new THREE.PlaneGeometry(r * 2, L), 0x4f9d4a, 0, 0, 0);
+  flat(new THREE.CircleGeometry(r, 40), 0x4f9d4a, 0, 0, -L / 2);
+  flat(new THREE.CircleGeometry(r, 40), 0x4f9d4a, 0, 0, L / 2);
+  for (let i = -4; i <= 4; i++) flat(new THREE.PlaneGeometry(r * 2, 11), 0x58a852, 0, 0.06, i * 22);   // mowing stripes
+  const lake = flat(new THREE.CircleGeometry(15, 32), 0x3fa9dc, 0, 0.2, 40); lake.scale.set(1, 1.7, 1);
+  const rim = flat(new THREE.CircleGeometry(16.2, 32), 0xe8d3a0, 0, 0.13, 40); rim.scale.set(1, 1.68, 1);
 }
-{ // grandstands + crowd
-  const colors = [0xff3b6b, 0xffc23d, 0x3de0ff, 0xffffff, 0x3dff8a, 0x9b7bff];
-  const crowd = new THREE.InstancedMesh(new THREE.BoxGeometry(0.8, 0.8, 0.8), new THREE.MeshLambertMaterial(), 2 * 4 * 140);
-  const m4 = new THREE.Matrix4(), c = new THREE.Color(); let i = 0;
-  for (const side of [1, -1]) {
-    const sx = side * (R + HALF_W + 7);
-    const stand = new THREE.Mesh(new THREE.BoxGeometry(6, 3, 140), new THREE.MeshLambertMaterial({ color: 0x9aa3b5 }));
-    stand.position.set(sx, 1.5, 0); scene.add(stand);
-    for (let row = 0; row < 4; row++) for (let k = 0; k < 140; k++) {
-      m4.makeTranslation(sx + side * (row * 1.3 - 2), 3.4 + row * 0.6, -69 + k);
-      crowd.setMatrixAt(i, m4); crowd.setColorAt(i, c.setHex(colors[(row * 7 + k * 3) % colors.length])); i++;
-    }
+scene.add(stripMesh(-HALF_W, HALF_W, 0.05, 0x2f313a));                                 // asphalt
+scene.add(stripMesh(-HALF_W - 1.5, -HALF_W, 0.1, 0xe0332b, 3));                       // curbs
+scene.add(stripMesh(HALF_W, HALF_W + 1.5, 0.1, 0xe0332b, 3));
+scene.add(stripMesh(-HALF_W + 0.1, -HALF_W + 0.45, 0.12, 0xffffff));                  // white edge lines
+scene.add(stripMesh(HALF_W - 0.45, HALF_W - 0.1, 0.12, 0xffffff));
+for (let i = 0; i < LANES - 1; i++) { const d = (laneD(i) + laneD(i + 1)) / 2; scene.add(stripMesh(d - 0.1, d + 0.1, 0.11, 0x2f313a, 2, 0x8a8d98)); }
+
+const START_Z = L / 2 - START;
+for (let i = 0; i < 26; i++) for (let j = 0; j < 3; j++) {                             // checkered start line
+  const sq = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ color: (i + j) % 2 ? 0xffffff : 0x111111 }));
+  sq.rotation.x = -Math.PI / 2; sq.position.set(R - HALF_W + 0.5 + i, 0.14, START_Z - 1 + j); scene.add(sq);
+}
+
+// start gantry with 5 lights (red one by one, then green = GO)
+const startLights = [], gantry = new THREE.Group(); scene.add(gantry);
+{
+  const metal = new THREE.MeshLambertMaterial({ color: 0x2a2d38 });
+  for (const side of [-1, 1]) { const post = new THREE.Mesh(new THREE.BoxGeometry(1.2, 13, 1.2), metal); post.position.set(R + side * (HALF_W + 2.6), 6.5, START_Z); gantry.add(post); }
+  const beam = new THREE.Mesh(new THREE.BoxGeometry(HALF_W * 2 + 7, 2.6, 1.6), metal); beam.position.set(R, 13, START_Z); gantry.add(beam);
+  const sign = new THREE.Mesh(new THREE.BoxGeometry(HALF_W * 2 + 7, 0.5, 1.7), new THREE.MeshBasicMaterial({ color: 0xff3b6b })); sign.position.set(R, 14.5, START_Z); gantry.add(sign);
+  for (let i = 0; i < 5; i++) {
+    const m = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 12), new THREE.MeshBasicMaterial({ color: 0x1a1a1a }));
+    m.position.set(R - 8 + i * 4, 13, START_Z + 1.2); gantry.add(m); startLights.push(m);
   }
-  scene.add(crowd);
+}
+function setStartLights(nRed, green) {
+  startLights.forEach((m, i) => m.material.color.setHex(green ? 0x30ff60 : i < nRed ? 0xff2020 : 0x1a1a1a));
+}
+
+// grandstands with a jumping crowd
+const crowdMeshes = [];
+{
+  const colors = [0xff3b6b, 0xffc23d, 0x3de0ff, 0xffffff, 0x3dff8a, 0x9b7bff, 0xff8a1f];
+  const concrete = new THREE.MeshLambertMaterial({ color: 0x8e96aa }), roofMat = new THREE.MeshLambertMaterial({ color: 0xf2f2f6 });
+  const ROWS = 6, SEATS = 150;
+  for (let half = 0; half < 2; half++) {
+    const mesh = new THREE.InstancedMesh(new THREE.BoxGeometry(0.75, 1.1, 0.75), new THREE.MeshLambertMaterial(), 2 * ROWS * SEATS / 2);
+    const m4 = new THREE.Matrix4(), c = new THREE.Color(); let i = 0;
+    for (const side of [1, -1]) {
+      const sx = side * (R + HALF_W + 9);
+      if (half === 0) {
+        for (let row = 0; row < ROWS; row++) { const step = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1 + row * 0.9, SEATS), concrete); step.position.set(sx + side * row * 1.6, (1 + row * 0.9) / 2, 0); scene.add(step); }
+        const roof = new THREE.Mesh(new THREE.BoxGeometry(12, 0.5, SEATS + 4), roofMat); roof.position.set(sx + side * 5, 11.5, 0); roof.rotation.z = side * 0.12; scene.add(roof);
+        for (const z of [-SEATS / 2, 0, SEATS / 2]) { const post = new THREE.Mesh(new THREE.BoxGeometry(0.6, 11.5, 0.6), concrete); post.position.set(sx + side * 9.6, 5.75, z); scene.add(post); }
+      }
+      for (let row = 0; row < ROWS; row++) for (let k = 0; k < SEATS; k++) {
+        if ((k + row) % 2 !== half) continue;
+        m4.makeTranslation(sx + side * row * 1.6, 1.6 + row * 0.9, -SEATS / 2 + 0.5 + k);
+        mesh.setMatrixAt(i, m4); mesh.setColorAt(i, c.setHex(colors[(row * 7 + k * 3 + (k * k) % 5) % colors.length])); i++;
+      }
+    }
+    mesh.count = i; scene.add(mesh); crowdMeshes.push(mesh);
+  }
+}
+
+{ // palms, floodlights, dunes
+  const rnd = (() => { let s = 12345; return () => (s = (s * 16807) % 2147483647) / 2147483647; })();
+  const spots = [], p = {};
+  for (let i = 0; i < 400 && spots.length < 110; i++) {
+    const s = rnd() * LOOP, inside = rnd() < 0.3;
+    const d = inside ? -HALF_W - 4 - rnd() * 9 : HALF_W + 7 + rnd() * 55;
+    trackAt(s, d, p);
+    if (!inside && Math.abs(p.z) < 84 && d < 36) continue;                       // keep the stands clear
+    if (inside && Math.abs(p.x) < 14 && p.z > 12 && p.z < 68) continue;          // keep the lake clear
+    spots.push({ x: p.x, z: p.z, h: 7 + rnd() * 5, r: rnd() * 6.28 });
+  }
+  const trunks = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.35, 0.6, 1, 6).translate(0, 0.5, 0), new THREE.MeshLambertMaterial({ color: 0x8a6240 }), spots.length);
+  const leafGeo = mergeGeometries([0, 1, 2, 3, 4, 5].map(k => new THREE.ConeGeometry(0.9, 5.2, 4).rotateZ(Math.PI / 2 + 0.45).translate(2.3, -0.5, 0).rotateY(k * Math.PI / 3)));
+  const leaves = new THREE.InstancedMesh(leafGeo, new THREE.MeshLambertMaterial({ color: 0x2f8f4a }), spots.length);
+  const o = new THREE.Object3D();
+  spots.forEach((sp, i) => {
+    o.position.set(sp.x, 0, sp.z); o.rotation.set(0, sp.r, 0); o.scale.set(1, sp.h, 1); o.updateMatrix(); trunks.setMatrixAt(i, o.matrix);
+    o.position.y = sp.h; o.scale.set(1, 1, 1); o.updateMatrix(); leaves.setMatrixAt(i, o.matrix);
+  });
+  scene.add(trunks, leaves);
+
+  const N = 18, poles = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.25, 0.35, 22, 6).translate(0, 11, 0), new THREE.MeshLambertMaterial({ color: 0x3a3d48 }), N);
+  const lamps = new THREE.InstancedMesh(new THREE.BoxGeometry(3.2, 1.2, 1.2), new THREE.MeshBasicMaterial({ color: 0xfff4c8 }), N);
+  for (let i = 0; i < N; i++) {
+    trackAt((i + 0.5) / N * LOOP, HALF_W + 4.2, p);
+    o.position.set(p.x, 0, p.z); o.rotation.set(0, p.yaw, 0); o.scale.set(1, 1, 1); o.updateMatrix(); poles.setMatrixAt(i, o.matrix);
+    o.position.y = 22.4; o.updateMatrix(); lamps.setMatrixAt(i, o.matrix);
+  }
+  scene.add(poles, lamps);
+
+  const dunes = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 16, 10), new THREE.MeshLambertMaterial({ color: 0xdcb884 }), 26);
+  for (let i = 0; i < 26; i++) {
+    const a = rnd() * 6.28, r = 330 + rnd() * 700;
+    o.position.set(Math.cos(a) * r, -4, Math.sin(a) * r * 1.2); o.rotation.set(0, rnd() * 3, 0);
+    o.scale.set(70 + rnd() * 120, 14 + rnd() * 26, 60 + rnd() * 90); o.updateMatrix(); dunes.setMatrixAt(i, o.matrix);
+  }
+  scene.add(dunes);
 }
 
 /* =========================================================
-   PART 2: Car models → one fast "instanced" mesh per tier
+   PART 3: Particles (flames, sparks, confetti, explosions)
+   ========================================================= */
+const PN = 1600;
+const pPos = new Float32Array(PN * 3).fill(-9999), pCol = new Float32Array(PN * 3), pVel = new Float32Array(PN * 3), pBase = new Float32Array(PN * 3);
+const pLife = new Float32Array(PN), pMax = new Float32Array(PN), pGrav = new Float32Array(PN);
+let pNext = 0, pBudget = 0;
+const pGeo = new THREE.BufferGeometry();
+pGeo.setAttribute("position", new THREE.BufferAttribute(pPos, 3));
+pGeo.setAttribute("color", new THREE.BufferAttribute(pCol, 3));
+const dotTex = (() => { const c = document.createElement("canvas"); c.width = c.height = 64; const g = c.getContext("2d"); const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, "rgba(255,255,255,1)"); gr.addColorStop(0.4, "rgba(255,255,255,.6)"); gr.addColorStop(1, "rgba(255,255,255,0)"); g.fillStyle = gr; g.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(c); })();
+const points = new THREE.Points(pGeo, new THREE.PointsMaterial({ size: 2.3, map: dotTex, vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, sizeAttenuation: true, fog: false }));
+points.frustumCulled = false; scene.add(points);
+const pc = new THREE.Color();
+function spark(x, y, z, vx, vy, vz, hex, life, grav) {
+  const i = pNext; pNext = (pNext + 1) % PN;
+  pPos[i * 3] = x; pPos[i * 3 + 1] = y; pPos[i * 3 + 2] = z;
+  pVel[i * 3] = vx; pVel[i * 3 + 1] = vy; pVel[i * 3 + 2] = vz;
+  pc.setHex(hex); pBase[i * 3] = pc.r; pBase[i * 3 + 1] = pc.g; pBase[i * 3 + 2] = pc.b;
+  pLife[i] = pMax[i] = life; pGrav[i] = grav || 0;
+}
+function burst(x, y, z, n, colors, power, life, grav) {
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * 6.28, up = Math.random(), sp = power * (0.4 + Math.random() * 0.6);
+    spark(x, y, z, Math.cos(a) * sp * (1 - up * 0.5), up * sp, Math.sin(a) * sp * (1 - up * 0.5), colors[i % colors.length], life * (0.6 + Math.random() * 0.4), grav);
+  }
+}
+function updateParticles(dt) {
+  for (let i = 0; i < PN; i++) {
+    if (pLife[i] <= 0) continue;
+    pLife[i] -= dt;
+    const k = i * 3;
+    if (pLife[i] <= 0) { pPos[k + 1] = -9999; continue; }
+    pVel[k + 1] -= pGrav[i] * dt;
+    pPos[k] += pVel[k] * dt; pPos[k + 1] += pVel[k + 1] * dt; pPos[k + 2] += pVel[k + 2] * dt;
+    const f = pLife[i] / pMax[i];
+    pCol[k] = pBase[k] * f; pCol[k + 1] = pBase[k + 1] * f; pCol[k + 2] = pBase[k + 2] * f;
+  }
+  pGeo.attributes.position.needsUpdate = true; pGeo.attributes.color.needsUpdate = true;
+}
+const CONFETTI = [0xff3b6b, 0xffc23d, 0x3de0ff, 0x3dff8a, 0xb070ff, 0xffffff];
+
+/* =========================================================
+   PART 4: Car models → one fast "instanced" mesh per tier
    ========================================================= */
 const loader = new GLTFLoader();
 const CAR_LENGTH = 4.2;
@@ -326,14 +540,13 @@ async function loadCarModel(name, paint) {
 }
 const carMaterial = new THREE.MeshLambertMaterial({ vertexColors: true });
 const tierMeshes = [];
-const shadowMesh = new THREE.InstancedMesh(
-  new THREE.CircleGeometry(1, 16).rotateX(-Math.PI / 2).scale(1.2, 1, 2.4),
-  new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.28, depthWrite: false }), MAX_CARS);
-shadowMesh.frustumCulled = false; scene.add(shadowMesh);
-// nitro flames (orange glow behind boosting cars)
-const flameMesh = new THREE.InstancedMesh(new THREE.ConeGeometry(0.7, 3, 8).rotateX(-Math.PI / 2),
-  new THREE.MeshBasicMaterial({ color: 0xff8a1f, transparent: true, opacity: 0.85 }), MAX_CARS);
-flameMesh.frustumCulled = false; flameMesh.count = 0; scene.add(flameMesh);
+const instanced = (geo, mat, n) => { const m = new THREE.InstancedMesh(geo, mat, n); m.frustumCulled = false; m.count = 0; scene.add(m); return m; };
+const shadowMesh = instanced(new THREE.CircleGeometry(1, 16).rotateX(-Math.PI / 2).scale(1.2, 1, 2.4), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.3, depthWrite: false }), MAX_CARS);
+const shieldMesh = instanced(new THREE.SphereGeometry(3, 14, 10), new THREE.MeshBasicMaterial({ color: 0x5fe8ff, transparent: true, opacity: 0.32, depthWrite: false }), 120);
+const BOXES = 12;
+const boxMesh = instanced(new THREE.BoxGeometry(1.6, 1.6, 1.6), new THREE.MeshLambertMaterial({ color: 0xffc23d, emissive: 0x7a4a00 }), BOXES);
+const rocketGeo = mergeGeometries([new THREE.CylinderGeometry(0.45, 0.45, 2.6, 8).rotateX(Math.PI / 2), new THREE.ConeGeometry(0.45, 1.2, 8).rotateX(Math.PI / 2).translate(0, 0, 1.9)]);
+const rocketMesh = instanced(rocketGeo, new THREE.MeshLambertMaterial({ color: 0xff3030, emissive: 0x661010 }), 12);
 
 // Take a picture of each car for the catalog and pop-ups
 const carPics = [];
@@ -352,147 +565,201 @@ function photographCars(geos) {
 }
 
 /* =========================================================
-   PART 3: Players and cars
+   PART 5: Players (kept for the whole live) and cars (one race)
    ========================================================= */
-let cars = [];                      // cars in the current race / lobby
-const byName = new Map();           // name → car
-let nextRace = new Map();           // name → tier, for people who join during a race
+const players = new Map();          // id → { id, name, tier, coins, wins, lastActive }
+let cars = [];                      // cars in the current lobby / race
+const byId = new Map();             // id → car
+const queue = new Set();            // ids waiting for the next lobby
 const tmp = {}, dummy = new THREE.Object3D();
 
-function tierForCoins(coins) { let t = 0; TIERS.forEach((x, i) => { if (coins >= x.coins) t = i; }); return t; }
-function tierForGift(name, coins) {
-  const byGift = TIERS.findIndex(t => t.gift && t.gift.toLowerCase() === (name || "").toLowerCase());
-  return Math.max(byGift, tierForCoins(coins));
+function getPlayer(id, name) {
+  let p = players.get(id);
+  if (!p) { p = { id, name: name || id, tier: 0, coins: 0, wins: 0, lastActive: 0 }; players.set(id, p); }
+  if (name) p.name = name;
+  p.lastActive = performance.now();
+  return p;
 }
+function tierForCoins(coins) { let t = 0; TIERS.forEach((x, i) => { if (coins >= x.coins) t = i; }); return t; }
+function tierForGift(name) { return TIERS.findIndex(t => t.gift && t.gift.toLowerCase() === (name || "").toLowerCase()); }
 
-function addCar(name, tier) {
-  if (byName.has(name) || cars.length >= MAX_CARS) return null;
-  const car = { name, tier: tier || 0, s: 0, d: 0, lane: 0, speed: 0, gas: 0, boostUntil: 0, hop: 0, joined: cars.length, laneCooldown: 0 };
+function addCar(p) {
+  if (byId.has(p.id)) return byId.get(p.id);
+  if (cars.length >= MAX_CARS) return null;
+  const car = { p, s: START, d: 0, lane: 4, speed: 0, gas: 0, boostUntil: 0, shieldUntil: 0, slowUntil: 0, spinStart: 0, spinUntil: 0, hop: 1, joined: cars.length, laneCooldown: 0, gridS: START, gridD: 0 };
+  cars.push(car); byId.set(p.id, car);
   if (phase === "race") {
-    // joining during the race: start at the back of the pack, in a lane with space
-    let tail = 0; for (const c of cars) tail = Math.min(tail, c.s);
-    car.s = cars.length ? tail - 8 : 0;
+    // joining during the race: start at the back of the pack, in the emptiest lane
+    let tail = START; for (const c of cars) if (c !== car) tail = Math.min(tail, c.s);
+    car.s = tail - 8;
     let best = 0, bestGap = -1;
     for (let l = 0; l < LANES; l++) {
-      let gap = 1e9; for (const c of cars) if (c.lane === l) gap = Math.min(gap, Math.abs(c.s - car.s));
+      let gap = 1e9; for (const c of cars) if (c !== car && c.lane === l) gap = Math.min(gap, Math.abs(c.s - car.s));
       if (gap > bestGap) { bestGap = gap; best = l; }
     }
     car.lane = best; car.d = laneD(best); car.gas = 6;
-    cars.push(car); byName.set(name, car);
-    refreshCounts(); rankCars();
-    return car;
+    rankCars();
+  } else {
+    layoutGrid();
+    car.s = car.gridS - 26; car.d = car.gridD;      // drives in from behind into its grid slot
   }
-  cars.push(car); byName.set(name, car);
-  layoutGrid(); refreshCounts();
   return car;
 }
 
-// Starting grid: best cars in front, then by who joined first
+// Starting grid: best cars in front, middle lanes first
 function layoutGrid() {
-  const order = [...cars].sort((a, b) => b.tier - a.tier || a.joined - b.joined);
+  const order = [...cars].sort((a, b) => b.p.tier - a.p.tier || a.joined - b.joined);
   order.forEach((c, i) => {
-    c.lane = i % LANES;
-    c.gridS = -4 - Math.floor(i / LANES) * 6.5;
+    c.lane = LANE_ORDER[i % LANES];
+    c.gridS = START - 4 - Math.floor(i / LANES) * GRID_GAP;
     c.gridD = laneD(c.lane);
   });
 }
 
-function refreshCounts() {
-  const counts = new Array(TIERS.length).fill(0);
-  for (const c of cars) counts[c.tier]++;
-  tierMeshes.forEach((m, t) => m.count = counts[t]);
-  shadowMesh.count = cars.length;
-}
-
 /* =========================================================
-   PART 4: Game phases  (lobby → race → podium → lobby …)
+   PART 6: Game phases  (lobby → countdown → race → podium → lobby …)
    ========================================================= */
-let phase = "lobby", phaseEnds = 0, raceStart = 0;
+let phase = "lobby", phaseEnds = 0, raceStart = 0, lastRaceStart = 0, lastBeep = -1, winner = null, finalOn = false;
+const $ = id => document.getElementById(id);
 
 function startLobby() {
   phase = "lobby";
   phaseEnds = performance.now() + LOBBY_SECONDS * 1000;
-  cars = []; byName.clear();
-  for (const [name, tier] of nextRace) addCar(name, tier);   // people who joined during the last race
-  nextRace = new Map();
-  refreshCounts();
-  document.getElementById("podium").classList.remove("show");
-  document.getElementById("lobby-ui").style.display = "block";
-  document.getElementById("race-ui").style.display = "none";
-  setCam("grid", true);
+  // everyone who was active in the last race gets their car back automatically
+  const back = [...cars].filter(c => c.p.lastActive >= lastRaceStart && lastRaceStart > 0).map(c => c.p);
+  cars = []; byId.clear();
+  for (const p of back) addCar(p);
+  for (const id of queue) { const p = players.get(id); if (p) addCar(p); }
+  queue.clear(); winner = null;
+  for (const c of cars) { c.s = c.gridS; c.d = c.gridD; c.hop = 0; }
+  $("podium").classList.remove("show");
+  $("lobby-ui").style.display = "block"; $("race-ui").style.display = "none";
+  setStartLights(0, false); showChamps(); gantry.visible = false;
+}
+
+function startCountdown() {
+  phase = "countdown"; lastBeep = -1; gantry.visible = true;
+  phaseEnds = performance.now() + COUNTDOWN_SECONDS * 1000;
+  $("lobby-ui").style.display = "none";
 }
 
 function startRace() {
-  phase = "race";
-  raceStart = performance.now();
+  phase = "race"; finalOn = false; gantry.visible = true;
+  raceStart = lastRaceStart = performance.now();
   phaseEnds = raceStart + RACE_SECONDS * 1000;
-  for (const c of cars) { c.s = c.gridS; c.d = c.gridD; c.speed = 0; c.gas = Math.max(c.gas, 3); }
-  document.getElementById("lobby-ui").style.display = "none";
-  document.getElementById("race-ui").style.display = "block";
-  setCam(userCam === "grid" ? "overview" : userCam, true);
-  bigAlert(["🏁 GO!"]);
+  for (const c of cars) { c.s = c.gridS; c.d = c.gridD; c.speed = 0; c.gas = Math.max(c.gas, 4); }
+  $("lobby-ui").style.display = "none"; $("race-ui").style.display = "block"; $("final").style.display = "none";
+  setStartLights(5, true); setTimeout(() => setStartLights(0, false), 4000);
+  showCount("GO!"); sfx.go(); placeBoxes();
+  directorStart = raceStart;
 }
 
 function startPodium() {
   phase = "podium";
   phaseEnds = performance.now() + PODIUM_SECONDS * 1000;
   rankCars();
-  const rows = document.getElementById("podium-rows"); rows.innerHTML = "";
+  winner = ranked[0] || null;
+  if (winner) winner.p.wins++;
+  const rows = $("podium-rows"); rows.innerHTML = "";
   ranked.slice(0, 3).forEach((c, i) => {
     const row = document.createElement("div"); row.className = "row";
     row.appendChild(document.createTextNode(["🥇", "🥈", "🥉"][i]));
-    const img = document.createElement("img"); img.src = carPics[c.tier]; row.appendChild(img);
-    const n = document.createElement("span"); n.className = "n"; n.textContent = c.name; row.appendChild(n);
+    row.appendChild(Object.assign(document.createElement("img"), { src: carPics[c.p.tier] }));
+    row.appendChild(Object.assign(document.createElement("span"), { className: "n", textContent: c.p.name }));
     rows.appendChild(row);
   });
   if (!ranked.length) rows.textContent = "—";
-  document.getElementById("podium").classList.add("show");
-  document.getElementById("race-ui").style.display = "none";
-  setCam("leader", true);
+  $("podium").classList.add("show"); $("race-ui").style.display = "none";
+  sfx.win();
 }
 
 function skipPhase() { phaseEnds = performance.now(); }
 
+function showCount(text) {
+  const el = $("count"); el.textContent = text; el.style.display = "block";
+  el.classList.remove("pop"); void el.offsetWidth; el.classList.add("pop");
+  clearTimeout(window._countT); window._countT = setTimeout(() => el.style.display = "none", 950);
+}
+
 function updatePhase(now) {
   const left = Math.max(0, Math.ceil((phaseEnds - now) / 1000));
   const mmss = Math.floor(left / 60) + ":" + String(left % 60).padStart(2, "0");
-  const big = document.getElementById("phase-big"), small = document.getElementById("phase-small"), box = document.getElementById("phase");
+  const big = $("phase-big"), small = $("phase-small"), box = $("phase");
   if (phase === "lobby") {
     big.textContent = "⏳ " + mmss; small.textContent = "🏎️ " + cars.length;
-    box.classList.toggle("hurry", left <= 5);
+    box.classList.toggle("hurry", left <= 10);
+    if (now >= phaseEnds) startCountdown();
+  } else if (phase === "countdown") {
+    const passed = COUNTDOWN_SECONDS - (phaseEnds - now) / 1000, n = Math.min(5, Math.floor(passed) + 1);
+    big.textContent = "🚦"; small.textContent = "🏎️ " + cars.length; box.classList.add("hurry");
+    if (n !== lastBeep) { lastBeep = n; setStartLights(n, false); sfx.beep(); if (left <= 3 && left >= 1) showCount(String(left)); }
     if (now >= phaseEnds) startRace();
   } else if (phase === "race") {
-    big.textContent = "⏱ " + mmss; small.textContent = left <= 30 ? "🏁🏁🏁" : "🏎️ " + cars.length;
+    const lead = ranked[0], lap = lead ? Math.max(1, Math.floor((lead.s - START) / LOOP) + 1) : 1;
+    big.textContent = "⏱ " + mmss; small.textContent = "🏁 " + lap + "  ·  🏎️ " + cars.length;
     box.classList.toggle("hurry", left <= 10);
+    if (!finalOn && left <= FINAL_SECONDS) { finalOn = true; $("final").style.display = "block"; showCount("×2"); sfx.go(); }
     if (now >= phaseEnds) startPodium();
   } else {
-    big.textContent = "🏆"; small.textContent = "⏳ " + mmss;
-    box.classList.remove("hurry");
+    big.textContent = "🏆"; small.textContent = "⏳ " + mmss; box.classList.remove("hurry");
     if (now >= phaseEnds) startLobby();
   }
 }
 
 /* =========================================================
-   PART 5: Driving – likes are gas, cars keep their lane and overtake
+   PART 7: Driving, power-ups and mystery boxes
    ========================================================= */
-const IDLE = 0.05, FULL = 0.17;       // speed per frame without / with full gas
+const IDLE = 0.05, FULL = 0.2;        // speed per frame without / with full gas
 let ranked = [];
 function rankCars() { ranked = [...cars].sort((a, b) => b.s - a.s); }
 setInterval(rankCars, 250);
 
+const boxes = [];
+function placeBoxes() {
+  boxes.length = 0;
+  for (let i = 0; i < BOXES; i++) boxes.push({ s: START + 60 + Math.random() * (LOOP - 80), lane: Math.floor(Math.random() * LANES), deadUntil: 0 });
+}
+
+function giveNitro(car, secs) { car.boostUntil = Math.max(car.boostUntil, performance.now()) + secs * 1000; car.gas += 8; }
+function giveShield(car, secs) { car.shieldUntil = Math.max(car.shieldUntil, performance.now()) + secs * 1000; }
+
+const rockets = [];
+function fireRocket(from) {
+  rankCars();
+  const target = ranked.find(c => c !== from);
+  if (!target || ranked[0] === from) { giveShield(from, 12); giveNitro(from, 8); return null; }   // the leader gets shield + nitro instead
+  rockets.push({ s: from.s + 3, d: from.d, target, from });
+  sfx.rocket();
+  return target;
+}
+function hitCar(car, now) {
+  trackAt(car.s, car.d, tmp);
+  if (now < car.shieldUntil) { car.shieldUntil = 0; burst(tmp.x, 2, tmp.z, 30, [0x5fe8ff, 0xffffff], 0.7, 40, 0.01); sfx.box(); return; }
+  car.spinStart = now; car.spinUntil = now + 2600; car.boostUntil = 0;
+  burst(tmp.x, 2, tmp.z, 70, [0xff8a1f, 0xffd040, 0xff3030], 0.9, 55, 0.012); sfx.boom();
+}
+function lightningStorm(from, now) {
+  for (const c of cars) if (c !== from && now >= c.shieldUntil) c.slowUntil = now + 4500;
+  const f = $("flash"); f.style.transition = "none"; f.style.opacity = "0.85"; void f.offsetWidth; f.style.transition = "opacity .7s"; f.style.opacity = "0";
+  sfx.storm();
+}
+
 function drive(dt, now) {
-  if (phase === "lobby") {
-    for (const c of cars) { c.s += (c.gridS - c.s) * 0.1 * dt; c.d += (c.gridD - c.d) * 0.1 * dt; }
+  if (phase === "lobby" || phase === "countdown") {
+    for (const c of cars) { c.s += (c.gridS - c.s) * 0.07 * dt; c.d += (c.gridD - c.d) * 0.07 * dt; }
     return;
   }
+  const racing = phase === "race";
   const perFrame = LIKES_FOR_FULL_GAS / 60 * dt;
   for (const c of cars) {
     const use = Math.min(c.gas, perFrame);
     c.gas -= use;
-    const throttle = phase === "race" ? use / perFrame : 0;
-    let target = (IDLE + (FULL - IDLE) * throttle) * TIERS[c.tier].speed;
-    if (now < c.boostUntil) target *= 1.7;
-    if (phase !== "race") target = IDLE;
+    const throttle = racing ? use / perFrame : 0;
+    let target = (IDLE + (FULL - IDLE) * throttle) * TIERS[c.p.tier].speed;
+    if (now < c.boostUntil) target = Math.max(target, FULL * 0.6 * TIERS[c.p.tier].speed) * 1.7;
+    if (now < c.slowUntil) target *= 0.4;
+    if (now < c.spinUntil) target *= 0.15;
+    if (!racing) target = IDLE * (c === winner ? 1.6 : 1);
     c.target = target;
     c.speed += (target - c.speed) * 0.06 * dt;
   }
@@ -519,71 +786,143 @@ function drive(dt, now) {
     }
   }
   for (const c of cars) { c.s += c.speed * dt; c.d += (laneD(c.lane) - c.d) * 0.06 * dt; }
+
+  if (!racing) return;
+  // mystery boxes: drive through one to get a surprise
+  for (const b of boxes) {
+    if (now < b.deadUntil) continue;
+    const bd = laneD(b.lane);
+    for (const c of cars) {
+      let ds = (c.s - b.s) % LOOP; if (ds < 0) ds += LOOP;
+      if ((ds < 2.2 || ds > LOOP - 2.2) && Math.abs(c.d - bd) < 1.5) {
+        b.deadUntil = now + 9000; b.s = c.s + 80 + Math.random() * (LOOP - 160); b.lane = Math.floor(Math.random() * LANES);
+        const r = Math.random();
+        if (r < 0.6) giveNitro(c, 2.5); else if (r < 0.85) giveShield(c, 7); else c.gas += 40;
+        trackAt(c.s, c.d, tmp); burst(tmp.x, 2, tmp.z, 24, [0xffd040, 0xffffff], 0.5, 35, 0.01); sfx.box();
+        break;
+      }
+    }
+  }
+  // rockets fly along the track to their target
+  for (let i = rockets.length - 1; i >= 0; i--) {
+    const r = rockets[i];
+    r.s += 2.4 * dt; r.d += (r.target.d - r.d) * 0.1 * dt;
+    trackAt(r.s, r.d, tmp);
+    spark(tmp.x, 1.6, tmp.z, 0, 0.05, 0, 0xffa040, 22, 0);
+    if (r.s >= r.target.s - 1.5 || cars.indexOf(r.target) < 0) { if (cars.indexOf(r.target) >= 0) hitCar(r.target, now); rockets.splice(i, 1); }
+  }
 }
 
 function drawCars(dt, now) {
   const counters = new Array(TIERS.length).fill(0);
-  let flames = 0;
+  let shields = 0; pBudget = 70;
+  const racing = phase === "race";
   cars.forEach((c, i) => {
     trackAt(c.s, c.d, tmp);
-    c.hop = Math.max(0, c.hop - 0.04 * dt);
-    const hopY = Math.sin(c.hop * Math.PI) * 2.5;
-    dummy.position.set(tmp.x, hopY, tmp.z); dummy.rotation.set(0, tmp.yaw, 0); dummy.scale.set(1, 1, 1); dummy.updateMatrix();
-    tierMeshes[c.tier].setMatrixAt(counters[c.tier]++, dummy.matrix);
+    c.hop = Math.max(0, c.hop - 0.035 * dt);
+    let yaw = tmp.yaw;
+    if (now < c.spinUntil) yaw += (now - c.spinStart) / 2600 * Math.PI * 6;
+    else if (now < c.slowUntil) yaw += Math.sin(now / 60 + i) * 0.15;
+    dummy.position.set(tmp.x, Math.sin(c.hop * Math.PI) * 2.5, tmp.z); dummy.rotation.set(0, yaw, 0); dummy.scale.set(1, 1, 1); dummy.updateMatrix();
+    const t = c.p.tier;
+    tierMeshes[t].setMatrixAt(counters[t]++, dummy.matrix);
     c.x = tmp.x; c.z = tmp.z;
-    dummy.position.y = 0.06; dummy.updateMatrix(); shadowMesh.setMatrixAt(i, dummy.matrix);
-    if (now < c.boostUntil && phase === "race") {
-      trackAt(c.s - 3.4, c.d, tmp);
-      dummy.position.set(tmp.x, 0.8, tmp.z); dummy.rotation.set(0, tmp.yaw + Math.PI, 0);
-      const f = 0.8 + Math.random() * 0.5; dummy.scale.set(f, f, f); dummy.updateMatrix();
-      flameMesh.setMatrixAt(flames++, dummy.matrix);
+    dummy.position.y = 0.2; dummy.rotation.set(0, tmp.yaw, 0); dummy.updateMatrix(); shadowMesh.setMatrixAt(i, dummy.matrix);
+    if (now < c.shieldUntil && shields < 120) {
+      dummy.position.y = 1.2; const sc = 1 + Math.sin(now / 150) * 0.06; dummy.scale.set(sc, sc * 0.75, sc); dummy.updateMatrix(); shieldMesh.setMatrixAt(shields++, dummy.matrix);
+    }
+    if (pBudget > 0 && racing) {
+      const bx = tmp.x - Math.sin(tmp.yaw) * 2.6, bz = tmp.z - Math.cos(tmp.yaw) * 2.6;
+      if (now < c.boostUntil) {            // nitro flames
+        pBudget -= 2;
+        for (let k = 0; k < 2; k++) spark(bx + (Math.random() - .5) * 0.8, 0.8 + Math.random() * 0.4, bz + (Math.random() - .5) * 0.8, -Math.sin(tmp.yaw) * 0.25, 0.03, -Math.cos(tmp.yaw) * 0.25, k ? 0xff7a1f : 0xffe070, 14, 0);
+      } else if (TIERS[t].glow && c.speed > 0.12 && Math.random() < 0.5) {   // light trail of the best cars
+        pBudget--; spark(bx, 0.7, bz, 0, 0.01, 0, TIERS[t].glow, 26, 0);
+      }
+      if (now < c.slowUntil && Math.random() < 0.15) { pBudget--; spark(tmp.x, 3 + Math.random() * 2, tmp.z, 0, -0.05, 0, 0xfff7a0, 12, 0); }
     }
   });
-  flameMesh.count = flames; flameMesh.instanceMatrix.needsUpdate = true;
-  for (const m of tierMeshes) m.instanceMatrix.needsUpdate = true;
-  shadowMesh.instanceMatrix.needsUpdate = true;
+  tierMeshes.forEach((m, t) => { m.count = counters[t]; m.instanceMatrix.needsUpdate = true; });
+  shadowMesh.count = cars.length; shadowMesh.instanceMatrix.needsUpdate = true;
+  shieldMesh.count = shields; shieldMesh.instanceMatrix.needsUpdate = true;
+
+  let nb = 0;
+  if (racing) for (const b of boxes) {
+    if (now < b.deadUntil) continue;
+    trackAt(b.s, laneD(b.lane), tmp);
+    dummy.position.set(tmp.x, 1.8 + Math.sin(now / 300 + b.s) * 0.3, tmp.z); dummy.rotation.set(0.5, now / 500 + b.s, 0.3); dummy.scale.set(1, 1, 1); dummy.updateMatrix();
+    boxMesh.setMatrixAt(nb++, dummy.matrix);
+  }
+  boxMesh.count = nb; boxMesh.instanceMatrix.needsUpdate = true;
+  let nr = 0;
+  for (const r of rockets) { if (nr >= 12) break; trackAt(r.s, r.d, tmp); dummy.position.set(tmp.x, 1.6, tmp.z); dummy.rotation.set(0, tmp.yaw, 0); dummy.scale.set(1, 1, 1); dummy.updateMatrix(); rocketMesh.setMatrixAt(nr++, dummy.matrix); }
+  rocketMesh.count = nr; rocketMesh.instanceMatrix.needsUpdate = true;
+
+  // crowd jumps (more when it gets exciting)
+  const hype = (phase === "podium" || (finalOn && racing)) ? 1 : racing ? 0.5 : 0.25;
+  crowdMeshes[0].position.y = Math.abs(Math.sin(now / 260)) * 0.7 * hype;
+  crowdMeshes[1].position.y = Math.abs(Math.cos(now / 260)) * 0.7 * hype;
+  // winner confetti
+  if (phase === "podium" && winner && Math.random() < 0.12 * dt) burst(winner.x + (Math.random() - .5) * 40, 8 + Math.random() * 10, winner.z + (Math.random() - .5) * 40, 16, CONFETTI, 0.45, 90, 0.01);
 }
 
 /* =========================================================
-   PART 6: Cameras
+   PART 8: Cameras (🎬 = automatic TV director)
    ========================================================= */
-let camMode = "grid", userCam = "overview";
-const camPos = new THREE.Vector3(0, 225, 345), camLook = new THREE.Vector3(0, 0, -45);
+let camMode = "auto", directorStart = 0;
+const camPos = new THREE.Vector3(R, 60, START_Z - 80), camLook = new THREE.Vector3(R, 0, START_Z);
 const wantPos = new THREE.Vector3(), wantLook = new THREE.Vector3(), p1 = {}, p2 = {};
-function setCam(mode, auto) {
-  camMode = mode;
-  if (!auto) userCam = mode;
-  document.querySelectorAll("[data-cam]").forEach(b => b.classList.toggle("on", b.dataset.cam === mode));
-}
+const DIRECTOR = [["overview", 6], ["leader", 8], ["front", 6], ["middle", 7], ["orbit", 7], ["leader", 7], ["rear", 5]];
+function setCam(mode) { camMode = mode; document.querySelectorAll("[data-cam]").forEach(b => b.classList.toggle("on", b.dataset.cam === mode)); }
 function chase(car, behind, height) {
   trackAt(car.s - behind, car.d * 0.5, p1); trackAt(car.s + 6, car.d, p2);
   wantPos.set(p1.x, height, p1.z); wantLook.set(p2.x, 1, p2.z);
+}
+function directorMode(now) {
+  if ((phaseEnds - now) / 1000 < 20) return Math.floor(now / 5000) % 2 ? "front" : "leader";   // the finish
+  let t = ((now - directorStart) / 1000) % DIRECTOR.reduce((a, b) => a + b[1], 0);
+  for (const [m, secs] of DIRECTOR) { if (t < secs) return m; t -= secs; }
+  return "overview";
 }
 function updateCamera(dt, now) {
   const portrait = window.innerHeight > window.innerWidth;
   let ease = 0.06;
   if (!ranked.length && cars.length) rankCars();
   const leader = ranked[0];
-  if (camMode === "grid" || !leader) {
-    // look at the starting grid from in front of the start line
-    const rows = Math.max(1, Math.ceil(cars.length / LANES));
-    const back = Math.min(60, 10 + rows * 2.5);
-    trackAt(26, 0, p1); trackAt(-back * 0.6, 0, p2);
-    wantPos.set(p1.x + 18, 22 + back * 0.6, p1.z); wantLook.set(p2.x, 0, p2.z);
-  } else if (camMode === "overview") {
+  let mode = camMode === "auto" ? directorMode(now) : camMode;
+  if (phase === "lobby" || phase === "countdown" || !leader) mode = "grid";
+  if (phase === "podium" && winner) mode = "winner";
+
+  if (phase === "countdown") mode = "lights";
+  if (mode === "lights") {
+    wantPos.set(R + Math.sin(now / 1500) * 2, 15, START_Z + 60); wantLook.set(R, 8, START_Z); ease = 0.09;
+  } else if (mode === "grid") {
+    // frame the cars on the starting grid (they sit in the lower part of the screen, under the catalog)
+    let minD = 0, maxD = 0, minS = START - 4;
+    for (const c of cars) { minD = Math.min(minD, c.gridD); maxD = Math.max(maxD, c.gridD); minS = Math.min(minS, c.gridS); }
+    const depth = Math.min(START - 4 - minS, 44), cs = START - 4 - depth / 2, cd = (minD + maxD) / 2;
+    const halfW = Math.max(4.5, (maxD - minD) / 2 + 3);
+    const hHalf = Math.atan(Math.tan(21 * Math.PI / 180) * camera.aspect);
+    const dist = Math.max(30, halfW / Math.tan(hHalf) * 1.08, depth * 1.5);
+    const sway = Math.sin(now / 5000) * halfW * 0.25;
+    wantPos.set(R + cd + sway, dist * 0.62, L / 2 - (cs + dist * 0.78));
+    wantLook.set(R + cd, dist * 0.2, L / 2 - cs);
+  } else if (mode === "winner") {
+    const a = now / 2500; wantPos.set(winner.x + Math.sin(a) * 17, 6, winner.z + Math.cos(a) * 17); wantLook.set(winner.x, 3.6, winner.z); ease = 0.12;
+  } else if (mode === "overview") {
     wantPos.set(0, portrait ? 225 : 170, portrait ? 345 : 265); wantLook.set(0, 0, portrait ? -45 : -20);
-  } else if (camMode === "leader") chase(leader, 26, 16);
-  else if (camMode === "front") { trackAt(leader.s + 26, leader.d, p1); trackAt(leader.s, leader.d, p2); wantPos.set(p1.x, 10, p1.z); wantLook.set(p2.x, 1, p2.z); ease = 0.1; }
-  else if (camMode === "middle") chase(ranked[Math.floor(ranked.length / 2)], 30, 20);
-  else if (camMode === "rear") chase(ranked[ranked.length - 1], 24, 14);
-  else if (camMode === "orbit") { const a = now / 9000; wantPos.set(Math.sin(a) * 230, 90, Math.cos(a) * 300); wantLook.set(0, 0, 0); ease = 0.04; }
+  } else if (mode === "leader") chase(leader, 26, 16);
+  else if (mode === "front") { trackAt(leader.s + 26, leader.d, p1); trackAt(leader.s, leader.d, p2); wantPos.set(p1.x, 10, p1.z); wantLook.set(p2.x, 1, p2.z); ease = 0.1; }
+  else if (mode === "middle") chase(ranked[Math.floor(ranked.length / 2)], 30, 20);
+  else if (mode === "rear") chase(ranked[ranked.length - 1], 24, 14);
+  else if (mode === "orbit") { const a = now / 9000; wantPos.set(Math.sin(a) * 230, 90, Math.cos(a) * 300); wantLook.set(0, 0, 0); ease = 0.04; }
   camPos.lerp(wantPos, Math.min(1, ease * dt));
   camLook.lerp(wantLook, Math.min(1, ease * 1.6 * dt));
   camera.position.copy(camPos); camera.lookAt(camLook);
 }
 
 /* =========================================================
-   PART 7: Screen: catalog, leaderboard, name tags, pop-ups, feed
+   PART 9: Screen: catalog, powers, leaderboard, names, pop-ups, feed
    ========================================================= */
 let giftPics = {};
 try { giftPics = JSON.parse(localStorage.getItem("gift_pics") || "{}"); } catch (e) {}
@@ -591,7 +930,7 @@ function rememberPic(name, url) {
   if (!name || !url || giftPics[name.toLowerCase()] === url) return;
   giftPics[name.toLowerCase()] = url;
   try { localStorage.setItem("gift_pics", JSON.stringify(giftPics)); } catch (e) {}
-  drawCatalog();
+  if (ready) { drawCatalog(); drawPowers(); }
 }
 function giftIcon(name, emoji, url) {
   const span = document.createElement("span"); span.className = "gicon";
@@ -600,48 +939,62 @@ function giftIcon(name, emoji, url) {
   else span.textContent = emoji;
   return span;
 }
+const el = (tag, cls, text) => Object.assign(document.createElement(tag), { className: cls || "", textContent: text || "" });
 function carImg(tier) { const img = document.createElement("img"); img.className = "car"; img.src = carPics[tier]; return img; }
+const shortName = n => n.length > 12 ? n.slice(0, 11) + "…" : n;
 
 function drawCatalog() {
-  const box = document.getElementById("catalog"); box.innerHTML = "";
+  const box = $("catalog"); box.innerHTML = "";
   TIERS.forEach((t, i) => {
-    const chip = document.createElement("div"); chip.className = "chip"; chip.dataset.tier = i;
+    const chip = el("div", "chip"); chip.dataset.tier = i;
+    if (t.follow) chip.appendChild(el("span", "plus", "➕/"));
     chip.appendChild(giftIcon(t.gift, t.icon));
-    const a = document.createElement("span"); a.className = "arr"; a.textContent = "➜"; chip.appendChild(a);
+    chip.appendChild(el("span", "arr", "➜"));
     chip.appendChild(carImg(i));
     box.appendChild(chip);
   });
 }
-function flashChip(tier) {
-  const chip = document.querySelector('#catalog [data-tier="' + tier + '"]');
-  if (chip) { chip.classList.remove("hit"); void chip.offsetWidth; chip.classList.add("hit"); }
+function drawPowers() {
+  const box = $("powers"); box.innerHTML = "";
+  const first = el("div", "chip", "❤️"); first.appendChild(el("span", "arr", "➜")); first.appendChild(document.createTextNode("⛽")); box.appendChild(first);
+  for (const p of POWERS) {
+    const chip = el("div", "chip"); chip.dataset.power = p.id;
+    chip.appendChild(giftIcon(p.gift, p.emoji)); chip.appendChild(el("span", "arr", "➜")); chip.appendChild(document.createTextNode(p.icon));
+    box.appendChild(chip);
+  }
+}
+function flashChip(sel) { const chip = document.querySelector(sel); if (chip) { chip.classList.remove("hit"); void chip.offsetWidth; chip.classList.add("hit"); } }
+
+function showChamps() {
+  const top = [...players.values()].filter(p => p.wins > 0).sort((a, b) => b.wins - a.wins).slice(0, 3);
+  $("champs").textContent = top.map(p => "👑 " + shortName(p.name) + " ×" + p.wins).join("   ");
 }
 
 function showBoard() {
   if (phase !== "race") return;
-  const box = document.getElementById("board"); box.innerHTML = "";
+  const box = $("board"); box.innerHTML = "";
   ranked.slice(0, 3).forEach((c, i) => {
-    const row = document.createElement("div"); row.className = "row";
-    row.appendChild(document.createTextNode(["🥇", "🥈", "🥉"][i]));
-    row.appendChild(Object.assign(document.createElement("img"), { src: carPics[c.tier] }));
-    row.appendChild(Object.assign(document.createElement("span"), { className: "n", textContent: c.name }));
+    const row = el("div", "row", ["🥇", "🥈", "🥉"][i]);
+    row.appendChild(Object.assign(document.createElement("img"), { src: carPics[c.p.tier] }));
+    row.appendChild(el("span", "n", c.p.name));
     if (performance.now() < c.boostUntil) row.appendChild(document.createTextNode("🔥"));
+    if (performance.now() < c.shieldUntil) row.appendChild(document.createTextNode("🛡️"));
     box.appendChild(row);
   });
 }
 setInterval(showBoard, 400);
 
 // Names above EVERY car the camera can see – drawn on one transparent canvas (fast even with 500 cars)
-const namesCanvas = document.getElementById("names"), nctx = namesCanvas.getContext("2d");
+const namesCanvas = $("names"), nctx = namesCanvas.getContext("2d");
 function sizeNames() {
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   namesCanvas.width = window.innerWidth * dpr; namesCanvas.height = window.innerHeight * dpr;
   nctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
 sizeNames(); window.addEventListener("resize", sizeNames);
-const v3 = new THREE.Vector3(), shortName = n => n.length > 12 ? n.slice(0, 11) + "…" : n;
+const v3 = new THREE.Vector3();
 const MEDAL = ["🥇", "🥈", "🥉"];
-function updateTags() {
+function updateTags(now) {
   const W = window.innerWidth, H = window.innerHeight;
   nctx.clearRect(0, 0, W, H);
   const top3 = phase === "race" || phase === "podium" ? ranked.slice(0, 3) : [];
@@ -656,8 +1009,7 @@ function updateTags() {
     if (sx < -40 || sx > W + 40 || sy < -20 || sy > H + 20) continue;
     list.push({ c, sx, sy, dist, rank: top3.indexOf(c) });
   }
-  // Near cars first. If a name would sit on top of another name, skip it this frame
-  // (otherwise hundreds of names melt into one unreadable blob in the wide camera).
+  // Near cars first. A name that would sit on top of another name is skipped this frame.
   list.sort((a, b) => a.dist - b.dist);
   const CELL = 6, cols = Math.ceil(W / CELL) + 1, rows = Math.ceil(H / CELL) + 1;
   const used = new Uint8Array(cols * rows);
@@ -669,22 +1021,20 @@ function updateTags() {
     return true;
   };
   nctx.textAlign = "center"; nctx.textBaseline = "bottom"; nctx.lineJoin = "round";
-  // reserve space for the top 3 badges first
   for (const t of list) if (t.rank >= 0) { const px = Math.max(11, Math.min(16, 1100 / t.dist)); take(t.sx - 60, t.sy - px - 10, t.sx + 60, t.sy); }
   for (const t of list) if (t.rank < 0) {
     const px = Math.max(9, Math.min(15, 900 / t.dist));
     nctx.font = "800 " + px + "px system-ui, -apple-system, 'Segoe UI', Tahoma, sans-serif";
-    const label = shortName(t.c.name) + (performance.now() < t.c.boostUntil ? "🔥" : "");
+    const label = (t.c.p.wins ? "👑" : "") + shortName(t.c.p.name) + (now < t.c.boostUntil ? "🔥" : "") + (now < t.c.shieldUntil ? "🛡️" : "") + (now < t.c.slowUntil ? "⚡" : "");
     const w = nctx.measureText(label).width;
     if (!take(t.sx - w / 2, t.sy - px, t.sx + w / 2, t.sy)) continue;
-    nctx.lineWidth = Math.max(2, px / 4); nctx.strokeStyle = "rgba(0,0,0,.85)"; nctx.fillStyle = "#fff";
+    nctx.lineWidth = Math.max(2, px / 4); nctx.strokeStyle = "rgba(0,0,0,.85)"; nctx.fillStyle = t.c.p.tier >= 5 ? "#ffe9a8" : "#fff";
     nctx.strokeText(label, t.sx, t.sy); nctx.fillText(label, t.sx, t.sy);
   }
-  // the top 3 get a gold / silver / bronze badge, drawn last so they are always on top
   for (const t of list) if (t.rank >= 0) {
     const px = Math.max(11, Math.min(16, 1100 / t.dist));
     nctx.font = "900 " + px + "px system-ui, -apple-system, 'Segoe UI', Tahoma, sans-serif";
-    const label = MEDAL[t.rank] + " " + shortName(t.c.name);
+    const label = MEDAL[t.rank] + " " + shortName(t.c.p.name);
     const w = nctx.measureText(label).width + 12, h = px + 8;
     nctx.fillStyle = ["rgba(214,165,0,.95)", "rgba(150,160,175,.95)", "rgba(176,104,46,.95)"][t.rank];
     nctx.beginPath(); nctx.roundRect(t.sx - w / 2, t.sy - h - 2, w, h, 7); nctx.fill();
@@ -693,22 +1043,19 @@ function updateTags() {
 }
 
 function bigAlert(parts) {
-  const a = document.getElementById("big-alert"); a.innerHTML = "";
-  for (const p of parts) {
-    if (typeof p === "string") a.appendChild(document.createTextNode(p));
-    else a.appendChild(p);
-  }
+  const a = $("big-alert"); a.innerHTML = "";
+  for (const p of parts) a.appendChild(typeof p === "string" ? document.createTextNode(p) : p);
   a.classList.add("show");
-  clearTimeout(window._alertT); window._alertT = setTimeout(() => a.classList.remove("show"), 2200);
+  clearTimeout(window._alertT); window._alertT = setTimeout(() => a.classList.remove("show"), 2400);
 }
 
 const FEED_MAX = 4, FEED_SECONDS = 8;
 let lastJoinFeed = 0;
 function addFeed(kind, icon, name, text) {
-  const feed = document.getElementById("feed");
-  const line = document.createElement("div"); line.className = "feed-line " + kind; line.dir = "auto";
+  const feed = $("feed");
+  const line = el("div", "feed-line " + kind); line.dir = "auto";
   line.appendChild(document.createTextNode(icon));
-  const n = document.createElement("span"); n.className = "n"; n.textContent = name; line.appendChild(n);
+  line.appendChild(el("span", "n", name));
   if (text) line.appendChild(document.createTextNode(text));
   feed.appendChild(line);
   while (feed.children.length > FEED_MAX) feed.firstChild.remove();
@@ -717,89 +1064,103 @@ function addFeed(kind, icon, name, text) {
 }
 
 /* =========================================================
-   PART 8: Viewers → game
+   PART 10: Viewers → game
    ========================================================= */
 function isJoin(text) { return /^\s*[1١]\s*$/.test(text || ""); }
 
-function onChat(name, text) {
-  if (isJoin(text)) { join(name); return; }
+function onChat(id, name, text) {
+  const p = getPlayer(id, name);
+  if (isJoin(text)) { join(p); return; }
   if (text && text.trim()) addFeed("chat", "💬", name, text);
 }
 
-function join(name, tier) {
-  if (phase === "lobby" || phase === "race") {
-    const car = addCar(name, tier || 0);
-    if (car) { car.hop = 1; addFeed("join", "🏎️", name, ""); }
-  } else if (!byName.has(name) && !nextRace.has(name)) {
-    nextRace.set(name, tier || 0);
-    addFeed("join", "⏳🏎️", name, "");
-  }
+function join(p, quiet) {
+  if (phase === "podium") { if (!queue.has(p.id)) { queue.add(p.id); addFeed("join", "⏳🏎️", p.name, ""); } return null; }
+  const had = byId.has(p.id), car = addCar(p);
+  if (car && !had) { car.hop = 1; sfx.join(); if (!quiet) addFeed("join", "🏎️", p.name, ""); }
+  return car;
 }
 
-function onLikes(name, amount) {
-  const car = byName.get(name);
-  if (car) car.gas = Math.min(car.gas + amount, 120);
+function onLikes(id, name, amount) {
+  getPlayer(id, name);
+  const car = byId.get(id);
+  if (car) car.gas = Math.min(car.gas + amount * (finalOn && phase === "race" ? 2 : 1), 90);
 }
 
-function onGift(name, giftName, coins, picUrl) {
+function onFollow(id, name) {
+  const p = getPlayer(id, name);
+  const up = p.tier < 1; if (up) p.tier = 1;
+  const car = join(p, true);
+  addFeed("gift", "➕", name, "");
+  if (car) { car.hop = 1; if (phase === "race") giveNitro(car, 4); else layoutGrid(); }
+  if (up) { bigAlert([el("span", "who", name), "➕ ➜", carImg(1)]); flashChip('#catalog [data-tier="1"]'); sfx.upgrade(); }
+}
+
+function onGift(id, name, giftName, coins, picUrl) {
   rememberPic(giftName, picUrl);
-  const tier = tierForGift(giftName, coins);
-  let car = byName.get(name);
-  if (phase === "lobby") {
-    if (!car) car = addCar(name, 0);           // a gift also joins you
-    if (!car) return;
-    if (tier > car.tier) { car.tier = tier; layoutGrid(); refreshCounts(); }
-    car.hop = 1;
-    flashChip(car.tier);
-    bigAlert([Object.assign(document.createElement("span"), { className: "who", textContent: name }), giftIcon(giftName, TIERS[tier].icon, picUrl), "➜", carImg(car.tier)]);
-  } else if (phase === "race") {
-    if (!car) car = addCar(name, tier);        // a gift during the race also joins you
-    if (!car) return;
-    // during the race a gift = nitro boost (bigger gift = longer boost)
-    const secs = Math.min(12, 2 + Math.log10(coins + 1) * 3);
-    car.boostUntil = Math.max(car.boostUntil, performance.now()) + secs * 1000;
-    car.gas += 10;
-    bigAlert([Object.assign(document.createElement("span"), { className: "who", textContent: name }), giftIcon(giftName, "🎁", picUrl), "➜ 🔥"]);
-  } else {
-    // not in this race: remember the upgrade for the next one
-    const prev = nextRace.get(name) || 0;
-    nextRace.set(name, Math.max(prev, tier));
-    addFeed("gift", "🎁⏳", name, "");
+  const p = getPlayer(id, name);
+  p.coins += coins;
+  const newTier = Math.max(p.tier, tierForCoins(p.coins), tierForGift(giftName));
+  const upgraded = newTier > p.tier; p.tier = newTier;
+  const who = el("span", "who", name), now = performance.now();
+  if (phase === "podium") { queue.add(id); addFeed("gift", "🎁", name, ""); if (upgraded) { bigAlert([who, giftIcon(giftName, "🎁", picUrl), "➜", carImg(p.tier)]); sfx.upgrade(); } return; }
+  const car = join(p, true);
+  if (!car) return;
+  car.hop = 1;
+  if (phase !== "race") {
+    layoutGrid(); flashChip('#catalog [data-tier="' + p.tier + '"]');
+    bigAlert([who, giftIcon(giftName, "🎁", picUrl), "➜", carImg(p.tier)]); sfx.upgrade();
+    trackAt(car.gridS, car.gridD, tmp); burst(tmp.x, 2, tmp.z, 40, [TIERS[p.tier].glow || 0xffffff, 0xffd040], 0.5, 50, 0.012);
+    return;
   }
+  // during the race: every gift fires a power (bigger gift = bigger power)
+  let power = POWERS[0]; for (const x of POWERS) if (coins >= x.min) power = x;
+  const parts = [who, giftIcon(giftName, "🎁", picUrl), "➜"];
+  if (power.id === "nitro") { giveNitro(car, Math.min(8, 3 + coins * 0.5)); parts.push("🔥"); sfx.nitro(); }
+  else if (power.id === "shield") { giveShield(car, 12); giveNitro(car, 6); parts.push("🛡️🔥"); sfx.nitro(); }
+  else if (power.id === "rocket") { giveNitro(car, 8); const target = fireRocket(car); parts.push(target ? "🚀 " + shortName(target.p.name) : "🛡️🔥"); }
+  else { giveNitro(car, 12); giveShield(car, 12); lightningStorm(car, now); parts.push("⚡⚡⚡"); }
+  if (upgraded) parts.push(carImg(p.tier));
+  bigAlert(parts); flashChip('#powers [data-power="' + power.id + '"]');
 }
 
 /* ---------- TikTok messages ---------- */
+function idOf(user) { return (user && (user.uniqueId || user.nickname)) || "?"; }
 function nameOf(user) { return (user && (user.nickname || user.uniqueId)) || "?"; }
 function picOf(d) { const img = d.giftImage || d.image || d.icon || {}; return (img.url && img.url[0]) || (img.urlList && img.urlList[0]) || ""; }
 
 function handleEvent(type, data) {
   if (!type || !data) return;
+  const u = data.user;
   if (type.includes("RoomUserSeqMessage")) {
     const n = Number(data.viewerCount || data.totalUser || 0);
-    if (n) document.getElementById("viewers").textContent = "👁 " + n;
-  } else if (type.includes("LikeMessage")) onLikes(nameOf(data.user), Number(data.likeCount) || 1);
-  else if (type.includes("ChatMessage")) onChat(nameOf(data.user), data.comment);
+    if (n) $("viewers").textContent = "👁 " + n;
+  } else if (type.includes("LikeMessage")) onLikes(idOf(u), nameOf(u), Number(data.likeCount) || 1);
+  else if (type.includes("ChatMessage")) onChat(idOf(u), nameOf(u), data.comment);
   else if (type.includes("MemberMessage")) {
     const now = Date.now();
-    if (now - lastJoinFeed > 1500) { lastJoinFeed = now; addFeed("chat", "👋", nameOf(data.user), ""); }
+    if (now - lastJoinFeed > 1500) { lastJoinFeed = now; addFeed("chat", "👋", nameOf(u), ""); }
+  } else if (type.includes("SocialMessage")) {
+    const action = String(data.action || "") + String((data.common && data.common.displayText && data.common.displayText.displayType) || "");
+    if (action.toLowerCase().includes("follow")) onFollow(idOf(u), nameOf(u));
   } else if (type.includes("GiftMessage")) {
     const d = data.giftDetails || {};
     if (Number(d.giftType) === 1 && !Number(data.repeatEnd)) return;   // wait until a combo ends
     const count = Number(data.repeatCount) || 1;
-    onGift(nameOf(data.user), d.giftName || d.name || "", (Number(d.diamondCount) || 1) * count, picOf(d));
+    onGift(idOf(u), nameOf(u), d.giftName || d.name || "", (Number(d.diamondCount) || 1) * count, picOf(d));
   }
 }
 function handleMessage(raw) {
   let msg; try { msg = JSON.parse(raw); } catch (e) { return; }
-  for (const m of (Array.isArray(msg.messages) ? msg.messages : [msg])) handleEvent(m.type, m.data);
+  for (const m of (Array.isArray(msg.messages) ? msg.messages : [msg])) { try { handleEvent(m.type, m.data); } catch (e) { console.warn(e); } }
 }
 
 /* =========================================================
-   PART 9: Connection that fixes itself
+   PART 11: Connection that fixes itself
    ========================================================= */
 function load(k) { try { return localStorage.getItem(k) || ""; } catch (e) { return ""; } }
 function save(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
-function setStatus(text, kind) { document.getElementById("status").className = kind || ""; document.getElementById("status-text").textContent = text; }
+function setStatus(text, kind) { $("status").className = kind || ""; $("status-text").textContent = text; }
 
 let socket = null, wantConnected = false, reconnectTimer = null, retryDelay = 2000, lastMessageAt = 0, liveUser = "", liveKey = "";
 function openSocket() {
@@ -823,98 +1184,106 @@ function scheduleReconnect(ms) { clearTimeout(reconnectTimer); reconnectTimer = 
 document.addEventListener("visibilitychange", () => { if (!document.hidden && wantConnected && (!socket || socket.readyState > 1)) { retryDelay = 2000; openSocket(); } });
 setInterval(() => { if (wantConnected && !document.hidden && socket && socket.readyState === 1 && Date.now() - lastMessageAt > 45000) openSocket(); }, 5000);
 
-/* =========================================================
-   PART 10: Start, test mode, menu
-   ========================================================= */
-const usernameInput = document.getElementById("username"), apikeyInput = document.getElementById("apikey");
-usernameInput.value = load("tt_username"); apikeyInput.value = load("tt_apikey");
-
-let ready = false, testing = false, autoLikes = true;
-async function boot() {
-  if (ready) return;
-  document.getElementById("loading").style.display = "flex";
-  const geos = await Promise.all(TIERS.map(t => loadCarModel(t.model, t.paint)));
-  geos.forEach((g, t) => { const m = new THREE.InstancedMesh(g, carMaterial, MAX_CARS); m.count = 0; m.frustumCulled = false; scene.add(m); tierMeshes[t] = m; });
-  photographCars(geos);
-  drawCatalog();
-  document.getElementById("loading").style.display = "none";
-  ready = true;
-  startLobby();
-  requestAnimationFrame(loop);
-}
-
-let last = performance.now();
-function loop(now) {
-  const dt = Math.min(3, (now - last) / 16.67); last = now;
-  if (testing && autoLikes && phase === "race") for (const c of cars) if (Math.random() < 0.04 * dt) c.gas += 3 + Math.random() * 12;
-  updatePhase(now);
-  drive(dt, now);
-  drawCars(dt, now);
-  updateCamera(dt, now);
-  renderer.render(scene, camera);
-  updateTags();
-  requestAnimationFrame(loop);
-}
-
-document.getElementById("connect-btn").onclick = async () => {
-  const username = usernameInput.value.trim().replace(/^@/, ""), apiKey = apikeyInput.value.trim();
-  if (!username) { usernameInput.focus(); return; }
-  save("tt_username", username); save("tt_apikey", apiKey);
-  liveUser = username; liveKey = apiKey; wantConnected = true;
-  document.getElementById("setup").style.display = "none";
-  await boot(); openSocket(); keepAwake();
-};
-document.getElementById("test-btn").onclick = async () => {
-  testing = true; document.body.classList.add("testing");
-  document.getElementById("setup").style.display = "none";
-  setStatus("🧪", "on"); await boot();
-  document.getElementById("viewers").textContent = "👁 " + 120;
-};
-
-// test buttons
-const names = ["Sara", "Omar", "Noura", "Faisal", "Lama", "Khalid", "Reem", "Turki", "Hessa", "Majed", "Dana", "Yousef", "Abdullah", "Shahad", "Nasser"];
-let fakeN = 0;
-const fakeName = () => names[fakeN % names.length] + (fakeN++ >= names.length ? " " + Math.ceil(fakeN / names.length) : "");
-function fakeJoins(n) { for (let i = 0; i < n; i++) handleEvent("WebcastChatMessage", { user: { nickname: fakeName() }, comment: Math.random() < .5 ? "1" : "١" }); }
-document.getElementById("t-join10").onclick = () => fakeJoins(10);
-document.getElementById("t-join100").onclick = () => fakeJoins(100);
-document.getElementById("t-gift").onclick = () => {
-  const who = cars.length ? cars[Math.floor(Math.random() * cars.length)].name : fakeName();
-  const t = TIERS[1 + Math.floor(Math.random() * (TIERS.length - 1))];
-  handleEvent("WebcastGiftMessage", { user: { nickname: who }, giftDetails: { giftName: t.gift, diamondCount: t.coins, giftType: 2 }, repeatCount: 1 });
-};
-document.getElementById("t-likes").onclick = (e) => { autoLikes = !autoLikes; e.target.classList.toggle("on", autoLikes); };
-document.getElementById("t-chat").onclick = () => handleEvent("WebcastChatMessage", { user: { nickname: fakeName() }, comment: ["يلا يلا 🔥", "وين سيارتي؟", "الذهبي طاير 😂", "Let's go!!"][Math.floor(Math.random() * 4)] });
-document.getElementById("t-skip").onclick = skipPhase;
-
-document.querySelectorAll("[data-cam]").forEach(b => b.onclick = () => setCam(b.dataset.cam));
-const menu = document.getElementById("menu");
-document.getElementById("menu-btn").onclick = () => menu.style.display = "flex";
-document.getElementById("close-menu-btn").onclick = () => menu.style.display = "none";
-document.getElementById("skip-btn").onclick = () => { skipPhase(); menu.style.display = "none"; };
-document.getElementById("toggle-test-btn").onclick = () => { document.body.classList.toggle("testing"); menu.style.display = "none"; };
-document.getElementById("toggle-cams-btn").onclick = () => { document.body.classList.toggle("hide-cams"); menu.style.display = "none"; };
-document.getElementById("disconnect-btn").onclick = () => {
-  wantConnected = false; clearTimeout(reconnectTimer);
-  if (socket) { socket.onclose = null; socket.close(); socket = null; }
-  menu.style.display = "none"; document.getElementById("setup").style.display = "block";
-};
-const fsBtn = document.getElementById("fullscreen-btn");
-if (window.navigator.standalone || matchMedia("(display-mode: fullscreen)").matches || matchMedia("(display-mode: standalone)").matches) fsBtn.style.display = "none";
-fsBtn.onclick = () => {
-  const el = document.documentElement, req = el.requestFullscreen || el.webkitRequestFullscreen;
-  const tip = () => { fsBtn.textContent = "iPhone: Share ⬆️ → Add to Home Screen, then open from the new icon"; fsBtn.style.fontSize = "13px"; };
-  if (req && document.fullscreenEnabled !== false) { try { const r = req.call(el); if (r && r.catch) r.catch(tip); } catch (e) { tip(); } menu.style.display = "none"; } else tip();
-};
 // Keep the screen awake while the game runs (auto-lock would pause everything)
 let wakeLock = null;
 async function keepAwake() {
   try { if ("wakeLock" in navigator && !document.hidden && (!wakeLock || wakeLock.released)) wakeLock = await navigator.wakeLock.request("screen"); } catch (e) {}
 }
 document.addEventListener("visibilitychange", keepAwake);
-document.addEventListener("click", keepAwake, { once: true });
 
-window.__game = { handleEvent, skipPhase, get phase() { return phase; }, get cars() { return cars; } };
+/* =========================================================
+   PART 12: Start, test mode, menu
+   ========================================================= */
+const usernameInput = $("username"), apikeyInput = $("apikey");
+usernameInput.value = load("tt_username"); apikeyInput.value = load("tt_apikey");
+
+let ready = false, testing = false, autoLikes = true;
+async function boot() {
+  initAudio(); keepAwake();
+  if (ready) return;
+  $("loading").style.display = "flex";
+  const geos = await Promise.all(TIERS.map(t => loadCarModel(t.model, t.paint)));
+  geos.forEach((g, t) => { tierMeshes[t] = instanced(g, carMaterial, MAX_CARS); });
+  photographCars(geos);
+  drawCatalog(); drawPowers();
+  $("loading").style.display = "none";
+  ready = true;
+  startLobby();
+  requestAnimationFrame(loop);
+}
+
+let last = performance.now(), slowFrames = 0, frameCount = 0, frameClock = performance.now();
+function loop(now) {
+  const dt = Math.min(3, (now - last) / 16.67); last = now;
+  if (testing && autoLikes && phase === "race") for (const c of cars) if (Math.random() < 0.04 * dt) c.gas += 2 + Math.random() * 8;
+  updatePhase(now);
+  drive(dt, now);
+  drawCars(dt, now);
+  updateParticles(dt);
+  updateCamera(dt, now);
+  renderer.render(scene, camera);
+  updateTags(now);
+  // if the phone struggles, lower the picture sharpness a little to keep the game smooth
+  if (++frameCount >= 90) {
+    const fps = frameCount * 1000 / (now - frameClock); frameCount = 0; frameClock = now;
+    if (fps < 34 && pixelRatio > 1 && ++slowFrames >= 2) { pixelRatio = Math.max(1, pixelRatio - 0.25); renderer.setPixelRatio(pixelRatio); slowFrames = 0; }
+    window.__fps = Math.round(fps);
+  }
+  requestAnimationFrame(loop);
+}
+
+$("connect-btn").onclick = async () => {
+  const username = usernameInput.value.trim().replace(/^@/, ""), apiKey = apikeyInput.value.trim();
+  if (!username) { usernameInput.focus(); return; }
+  save("tt_username", username); save("tt_apikey", apiKey);
+  liveUser = username; liveKey = apiKey; wantConnected = true;
+  $("setup").style.display = "none";
+  await boot(); openSocket();
+};
+$("test-btn").onclick = async () => {
+  testing = true; document.body.classList.add("testing");
+  $("setup").style.display = "none";
+  setStatus("🧪", "on"); await boot();
+  $("viewers").textContent = "👁 120";
+};
+
+// test buttons
+const names = ["Sara", "Omar", "Noura", "Faisal", "Lama", "Khalid", "Reem", "Turki", "Hessa", "Majed", "Dana", "Yousef", "Abdullah", "Shahad", "Nasser"];
+let fakeN = 0;
+const fakeUser = () => { const n = names[fakeN % names.length] + (fakeN >= names.length ? " " + (Math.floor(fakeN / names.length) + 1) : ""); fakeN++; return { uniqueId: "fake_" + fakeN, nickname: n }; };
+const carUser = c => ({ uniqueId: c.p.id, nickname: c.p.name });
+const randomCarUser = () => cars.length ? carUser(cars[Math.floor(Math.random() * cars.length)]) : fakeUser();
+const fakeGift = (user, t) => handleEvent("WebcastGiftMessage", { user, giftDetails: { giftName: t.gift, diamondCount: t.coins || t.min, giftType: 2 }, repeatCount: 1 });
+function fakeJoins(n) { for (let i = 0; i < n; i++) handleEvent("WebcastChatMessage", { user: fakeUser(), comment: Math.random() < .5 ? "1" : "١" }); }
+$("t-join10").onclick = () => fakeJoins(10);
+$("t-join100").onclick = () => fakeJoins(100);
+$("t-gift").onclick = () => fakeGift(randomCarUser(), TIERS[1 + Math.floor(Math.random() * (TIERS.length - 1))]);
+$("t-rocket").onclick = () => fakeGift(phase === "race" && ranked.length > 4 ? carUser(ranked[3 + Math.floor(Math.random() * Math.min(8, ranked.length - 3))]) : randomCarUser(), { gift: "Hand Hearts", coins: 100 });
+$("t-storm").onclick = () => fakeGift(randomCarUser(), { gift: "Galaxy", coins: 1000 });
+$("t-likes").onclick = (e) => { autoLikes = !autoLikes; e.target.classList.toggle("on", autoLikes); };
+$("t-skip").onclick = skipPhase;
+
+document.querySelectorAll("[data-cam]").forEach(b => b.onclick = () => setCam(b.dataset.cam));
+const menu = $("menu");
+$("menu-btn").onclick = () => menu.style.display = "flex";
+$("close-menu-btn").onclick = () => menu.style.display = "none";
+$("skip-btn").onclick = () => { skipPhase(); menu.style.display = "none"; };
+$("sound-btn").onclick = (e) => { soundOn = !soundOn; e.target.textContent = soundOn ? "🔊 Sound: on" : "🔇 Sound: off"; initAudio(); };
+$("toggle-test-btn").onclick = () => { document.body.classList.toggle("testing"); menu.style.display = "none"; };
+$("toggle-cams-btn").onclick = () => { document.body.classList.toggle("hide-cams"); menu.style.display = "none"; };
+$("disconnect-btn").onclick = () => {
+  wantConnected = false; clearTimeout(reconnectTimer);
+  if (socket) { socket.onclose = null; socket.close(); socket = null; }
+  menu.style.display = "none"; $("setup").style.display = "block";
+};
+const fsBtn = $("fullscreen-btn");
+if (window.navigator.standalone || matchMedia("(display-mode: fullscreen)").matches || matchMedia("(display-mode: standalone)").matches) fsBtn.style.display = "none";
+fsBtn.onclick = () => {
+  const root = document.documentElement, req = root.requestFullscreen || root.webkitRequestFullscreen;
+  const tip = () => { fsBtn.textContent = "iPhone: Share ⬆️ → Add to Home Screen, then open from the new icon"; fsBtn.style.fontSize = "13px"; };
+  if (req && document.fullscreenEnabled !== false) { try { const r = req.call(root); if (r && r.catch) r.catch(tip); } catch (e) { tip(); } menu.style.display = "none"; } else tip();
+};
+window.__game = { handleEvent, skipPhase, get phase() { return phase; }, get cars() { return cars; }, get ranked() { return ranked; }, players };
 </script>
 </body>
 </html>
