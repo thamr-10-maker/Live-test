@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Brawl">
+<meta name="theme-color" content="#0d0b14">
+<link rel="manifest" href="fight-manifest.json">
+<link rel="apple-touch-icon" href="fight-icon-180.png">
+<title>Arena Brawl – TikTok LIVE Game</title>
+<style>
+  :root { --pink: #ff3b6b; --gold: #ffc23d; --green: #3dff8a; --card: rgba(15,14,25,.72); }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; overflow: hidden; background: #1b1f4b; color: #fff; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+  canvas { display: block; width: 100%; height: 100%; }
+
+  /* ---------- Setup screen (only the streamer sees this) ---------- */
+  #setup { position: absolute; inset: 0; z-index: 20; background: #0d0b14; padding: calc(24px + env(safe-area-inset-top)) 20px 24px; overflow-y: auto; }
+  #setup > div { max-width: 480px; margin: 0 auto; }
+  #setup h1 { font-size: 26px; margin-bottom: 6px; }
+  #setup p { color: #9a93b8; font-size: 14px; line-height: 1.5; margin-bottom: 10px; }
+  label { display: block; font-size: 13px; color: #9a93b8; margin: 14px 0 6px; }
+  input { width: 100%; padding: 14px; font-size: 16px; border-radius: 12px; border: 1px solid #332d4a; background: #1a1726; color: #fff; }
+  .btn { display: block; width: 100%; font-size: 16px; font-weight: 700; padding: 14px; border: 0; border-radius: 12px; margin-top: 10px; }
+  .btn-main { background: var(--pink); color: #fff; margin-top: 18px; }
+  .btn-soft { background: #1a1726; color: #fff; border: 1px solid #332d4a; }
+
+  /* ---------- HUD (kept small on purpose) ---------- */
+  #hud { position: absolute; z-index: 5; top: 0; left: 0; right: 0; padding: calc(6px + env(safe-area-inset-top)) 10px 0; pointer-events: none; }
+  #top-row { display: flex; justify-content: space-between; align-items: center; font-size: 11px; }
+  #room { display: flex; align-items: center; gap: 8px; background: var(--card); padding: 4px 10px; border-radius: 14px; font-size: 13px; font-weight: 800; }
+  #status .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #666; margin-right: 4px; }
+  #status.on .dot { background: var(--green); }
+  #status.err .dot { background: var(--pink); }
+  #status-text { font-size: 11px; font-weight: 400; }
+  #menu-btn { pointer-events: auto; padding: 5px 12px; font-size: 14px; background: var(--card); color: #fff; border: 0; border-radius: 14px; }
+
+  .banner { margin: 6px auto 0; width: fit-content; max-width: 96%; background: linear-gradient(135deg, #ff3b6b, #ff7a3d); border-radius: 16px; padding: 6px 18px; text-align: center; font-weight: 800; line-height: 1.3; box-shadow: 0 6px 24px rgba(255,59,107,.45); }
+  .banner .ar { font-size: 20px; }
+  .banner .en { font-size: 13px; opacity: .95; }
+  #rules { margin: 6px auto 0; display: flex; gap: 6px; justify-content: center; }
+  #rules span { background: var(--card); border-radius: 12px; padding: 4px 12px; font-size: 18px; font-weight: 800; white-space: nowrap; }
+  #board { margin: 6px 0 0; width: fit-content; max-width: 70%; background: var(--card); border-radius: 12px; padding: 4px 10px; font-size: 14px; font-weight: 800; line-height: 1.6; }
+  #board:empty { display: none; }
+  #board div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  #names { position: absolute; inset: 0; pointer-events: none; }
+  #flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; z-index: 4; }
+
+  #feed { position: absolute; z-index: 5; left: 8px; bottom: calc(14px + env(safe-area-inset-bottom)); width: 78%; display: flex; flex-direction: column; gap: 4px; pointer-events: none; }
+  body.testing #feed { bottom: calc(62px + env(safe-area-inset-bottom)); }
+  .feed-line { width: fit-content; max-width: 100%; background: var(--card); border-radius: 12px; padding: 4px 10px; font-size: 13px; line-height: 1.3; animation: feedIn .3s; transition: opacity .6s; overflow-wrap: anywhere; }
+  .feed-line .n { font-weight: 800; color: #8fd3ff; margin: 0 3px; }
+  .feed-line.ko .n { color: var(--gold); }
+  .feed-line.join .n { color: var(--green); }
+  .feed-line.gone { opacity: 0; }
+  @keyframes feedIn { from { opacity: 0; transform: translateY(6px); } }
+
+  #big-alert { position: absolute; z-index: 6; left: 50%; top: 30%; transform: translate(-50%, -50%) scale(.6); background: linear-gradient(135deg, #ffd65a, #ffab2e); color: #1a1200; padding: 10px 18px; border-radius: 18px; font-size: 26px; font-weight: 900; opacity: 0; transition: all .25s; display: flex; align-items: center; gap: 8px; white-space: nowrap; max-width: 94%; pointer-events: none; box-shadow: 0 10px 40px rgba(255,180,40,.5); }
+  #big-alert.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  #big-alert .who { font-size: 20px; max-width: 150px; overflow: hidden; text-overflow: ellipsis; }
+  #big-alert .gicon { display: inline-flex; } #big-alert .gicon img { width: 32px; height: 32px; }
+
+  #test-bar { position: absolute; z-index: 5; left: 0; right: 0; bottom: 0; padding: 6px 8px calc(8px + env(safe-area-inset-bottom)); display: none; grid-template-columns: repeat(8, 1fr); gap: 4px; background: rgba(0,0,0,.4); }
+  body.testing #test-bar { display: grid; }
+  #test-bar button { padding: 9px 0; border: 0; border-radius: 9px; font-size: 14px; font-weight: 800; background: rgba(255,255,255,.92); color: #222; }
+  #test-bar button.on { background: var(--pink); color: #fff; }
+
+  #menu { position: absolute; inset: 0; z-index: 15; background: rgba(13,11,20,.9); display: none; align-items: center; justify-content: center; }
+  #menu > div { width: 80%; max-width: 320px; }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+
+<!-- ================= SETUP ================= -->
+<div id="setup"><div>
+  <h1>👊 Arena Brawl</h1>
+  <p>A free-for-all fight on a round platform over the sea. Viewers follow (or type 1) to drop in. Likes are their punches. Any gift gives a surprise weapon or power. Knock the others into the water.</p>
+  <label for="username">TikTok username (without @)</label>
+  <input id="username" placeholder="example: ahmed_live" autocomplete="off" autocapitalize="off">
+  <label for="apikey">Euler Stream API key</label>
+  <input id="apikey" placeholder="paste your key here" autocomplete="off" autocapitalize="off">
+  <button class="btn btn-main" id="connect-btn">Start game on LIVE</button>
+  <button class="btn btn-soft" id="test-btn">Try test mode</button>
+  <p style="margin-top:14px;font-size:12px;text-align:center">Arena Brawl · Version 1</p>
+</div></div>
+
+<!-- ================= HUD ================= -->
+<div id="hud">
+  <div id="top-row">
+    <div id="room"><div id="status"><span class="dot"></span><span id="status-text"></span></div><span id="viewers"></span><span id="count"></span></div>
+    <button id="menu-btn">☰</button>
+  </div>
+  <div class="banner"><div class="ar" dir="rtl">تابع ➕ وادخل القتال 👊</div><div class="en">Follow to join the fight · or type 1</div></div>
+  <div id="rules"><span>❤️ ➜ 👊</span><span>🎁 ➜ ❓⚔️</span></div>
+  <div id="board"></div>
+</div>
+<canvas id="names"></canvas>
+<div id="flash"></div>
+<div id="feed"></div>
+<div id="big-alert"></div>
+
+<div id="test-bar">
+  <button id="t-join1">+1</button>
+  <button id="t-join10">+10</button>
+  <button id="t-likes" class="on">❤️</button>
+  <button id="t-g1">🌹</button>
+  <button id="t-g2">🍩</button>
+  <button id="t-g3">🫶</button>
+  <button id="t-g4">⚡</button>
+  <button id="t-g5">☢️</button>
+</div>
+
+<div id="menu"><div>
+  <button class="btn btn-soft" id="fullscreen-btn">⛶ Full screen</button>
+  <button class="btn btn-soft" id="sound-btn">🔊 Sound: on</button>
+  <button class="btn btn-soft" id="toggle-test-btn">🧪 Show / hide test buttons</button>
+  <button class="btn btn-soft" id="disconnect-btn">✕ Disconnect</button>
+  <button class="btn btn-main" id="close-menu-btn">Back to game</button>
+</div></div>
+
+<script type="module">
+import * as THREE from "three";
+import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
+
+/* =========================================================
+   SETTINGS – change these to tune the game
+   ========================================================= */
+const MAX_FIGHTERS = 120;       // most fighters on the platform at once
+const MIN_FIGHTERS = 4;         // robots fill the arena up to this number, so nobody waits alone
+const ACTIVE_SECONDS = 150;     // a knocked-out viewer comes back only if they did something in this time
+const RESPAWN_SECONDS = 2.5;
+const AUTO_PUNCH_SECONDS = 2.2; // everyone punches slowly by themselves; likes punch much faster
+const TOP_GIFT_WAIT = 0;        // (reserved)
+
+// Weapons: kb = how hard it pushes, dmg = damage, range = reach
+const WEAPONS = {
+  fist:   { icon: "👊", kb: 0.50, dmg: 6,  range: 2.7 },
+  bat:    { icon: "🏏", kb: 0.85, dmg: 9,  range: 3.3 },
+  pan:    { icon: "🍳", kb: 0.95, dmg: 8,  range: 3.0 },
+  hammer: { icon: "🔨", kb: 1.30, dmg: 13, range: 3.5 },
+  sword:  { icon: "⚔️", kb: 1.10, dmg: 16, range: 3.9 },
+};
+// What a gift gives, by its price in coins. Every gift gives something (and heals you).
+//   1–4: bat or pan · 5–29: hammer or sword · 30–99: bombs + shield · 100–499: giant
+//   500–999: lightning · 1000+: nuke
+
+/* =========================================================
+   PART 1: Sounds (made in code, no files)
+   ========================================================= */
+let actx = null, soundOn = true, lastPunch = 0;
+function initAudio() { try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); if (actx.state === "suspended") actx.resume(); } catch (e) {} }
+function tone(freq, dur, type, vol, slideTo) {
+  if (!actx || !soundOn) return;
+  try {
+    const t = actx.currentTime, o = actx.createOscillator(), g = actx.createGain();
+    o.type = type || "sine"; o.frequency.setValueAtTime(freq, t);
+    if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t + dur);
+    g.gain.setValueAtTime(vol || 0.12, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    o.connect(g); g.connect(actx.destination); o.start(t); o.stop(t + dur);
+  } catch (e) {}
+}
+function noise(dur, vol, freq) {
+  if (!actx || !soundOn) return;
+  try {
+    const n = Math.floor(actx.sampleRate * dur), buf = actx.createBuffer(1, n, actx.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / n);
+    const src = actx.createBufferSource(), f = actx.createBiquadFilter(), g = actx.createGain();
+    src.buffer = buf; f.type = "lowpass"; f.frequency.value = freq || 800; g.gain.value = vol || 0.2;
+    src.connect(f); f.connect(g); g.connect(actx.destination); src.start();
+  } catch (e) {}
+}
+const sfx = {
+  punch() { const n = Date.now(); if (n - lastPunch < 90) return; lastPunch = n; noise(0.08, 0.16, 500); },
+  join() { tone(520, 0.1, "triangle", 0.08); setTimeout(() => tone(780, 0.14, "triangle", 0.08), 80); },
+  splash() { noise(0.45, 0.2, 1400); tone(500, 0.3, "sine", 0.06, 120); },
+  gift() { tone(523, 0.1, "triangle"); setTimeout(() => tone(784, 0.15, "triangle"), 90); setTimeout(() => tone(1047, 0.25, "triangle"), 190); },
+  boom() { noise(0.6, 0.3, 300); },
+  zap() { noise(0.25, 0.25, 4000); tone(1800, 0.2, "sawtooth", 0.05, 200); },
+  siren() { tone(400, 1.4, "sawtooth", 0.08, 1200); },
+  nuke() { noise(2.2, 0.5, 160); },
+};
+
+/* =========================================================
+   PART 2: 3D world – sunset sky, sea, round stone platform
+   ========================================================= */
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+let pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+renderer.setPixelRatio(pixelRatio);
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.prepend(renderer.domElement);
+
+const HORIZON = 0xf5a971, WATER_Y = -6;
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(HORIZON);
+scene.fog = new THREE.Fog(HORIZON, 500, 1600);
+const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 2, 4000);
+scene.add(new THREE.HemisphereLight(0xfff0e0, 0x6a6a8a, 1.8));
+const sun = new THREE.DirectionalLight(0xffcf9a, 1.5); sun.position.set(-60, 80, -120); scene.add(sun);
+window.addEventListener("resize", () => {
+  camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// paints a geometry in one flat color (so many pieces can be merged into one fast mesh)
+function colored(geo, hex) {
+  const g = geo.index ? geo.toNonIndexed() : geo;
+  const c = new THREE.Color(hex), n = g.getAttribute("position").count, cols = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) { cols[i * 3] = c.r; cols[i * 3 + 1] = c.g; cols[i * 3 + 2] = c.b; }
+  g.setAttribute("color", new THREE.BufferAttribute(cols, 3));
+  g.deleteAttribute("uv");
+  return g;
+}
+
+{ // sky dome + sun
+  const g = new THREE.SphereGeometry(3000, 24, 16);
+  const pos = g.getAttribute("position"), col = new Float32Array(pos.count * 3);
+  const stops = [[0, new THREE.Color(HORIZON)], [0.12, new THREE.Color(0xf07f6e)], [0.3, new THREE.Color(0x8a4f96)], [0.6, new THREE.Color(0x2c2a6e)], [1, new THREE.Color(0x121440)]];
+  const c = new THREE.Color();
+  for (let i = 0; i < pos.count; i++) {
+    const h = Math.max(0, pos.getY(i) / 3000);
+    let k = 0; while (k < stops.length - 2 && h > stops[k + 1][0]) k++;
+    const t = Math.min(1, (h - stops[k][0]) / (stops[k + 1][0] - stops[k][0]));
+    c.copy(stops[k][1]).lerp(stops[k + 1][1], t);
+    col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
+  }
+  g.setAttribute("color", new THREE.BufferAttribute(col, 3));
+  scene.add(new THREE.Mesh(g, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: false, depthWrite: false })));
+}
+// sea
+const sea = new THREE.Mesh(new THREE.PlaneGeometry(7000, 7000), new THREE.MeshLambertMaterial({ color: 0x2e86c9 }));
+sea.rotation.x = -Math.PI / 2; sea.position.y = WATER_Y; scene.add(sea);
+// white foam rings drifting on the water (cheap "waves")
+const foam = new THREE.InstancedMesh(new THREE.RingGeometry(0.92, 1, 40).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xd8f1ff, transparent: true, opacity: 0.35, depthWrite: false }), 5);
+scene.add(foam);
+
+// the platform: radius 1, scaled to the arena size every frame
+const arena = new THREE.Group(); scene.add(arena);
+{
+  const top = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 1.2, 64).translate(0, -0.6, 0), new THREE.MeshLambertMaterial({ color: 0xe9d8b4 })); arena.add(top);
+  const rock = new THREE.Mesh(new THREE.CylinderGeometry(0.97, 0.55, 9, 40).translate(0, -5.6, 0), new THREE.MeshLambertMaterial({ color: 0x8a7a6a })); arena.add(rock);
+  const ringMat = new THREE.MeshBasicMaterial({ color: 0xe0332b });
+  const edge = new THREE.Mesh(new THREE.RingGeometry(0.93, 0.985, 64).rotateX(-Math.PI / 2).translate(0, 0.02, 0), ringMat); arena.add(edge);
+  const mid = new THREE.Mesh(new THREE.RingGeometry(0.47, 0.49, 64).rotateX(-Math.PI / 2).translate(0, 0.02, 0), new THREE.MeshBasicMaterial({ color: 0xcdb98f })); arena.add(mid);
+  const dot = new THREE.Mesh(new THREE.CircleGeometry(0.06, 24).rotateX(-Math.PI / 2).translate(0, 0.02, 0), ringMat); arena.add(dot);
+}
+{ // far rocks and palm islands, just for scenery
+  const rnd = (() => { let s = 4242; return () => (s = (s * 16807) % 2147483647) / 2147483647; })();
+  const o = new THREE.Object3D();
+  const rocks = new THREE.InstancedMesh(new THREE.DodecahedronGeometry(1, 0), new THREE.MeshLambertMaterial({ color: 0x9a8876 }), 30);
+  const sand = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 16, 8), new THREE.MeshLambertMaterial({ color: 0xe6cf9c }), 8);
+  const trunkGeo = new THREE.CylinderGeometry(0.4, 0.7, 12, 6).translate(0, 6, 0);
+  const leafGeo = mergeGeometries([0, 1, 2, 3, 4, 5].map(k => new THREE.ConeGeometry(1.1, 7, 4).rotateZ(Math.PI / 2 + 0.45).translate(3.1, 11.4, 0).rotateY(k * Math.PI / 3)));
+  const trunks = new THREE.InstancedMesh(trunkGeo, new THREE.MeshLambertMaterial({ color: 0x8a6240 }), 20);
+  const leaves = new THREE.InstancedMesh(leafGeo, new THREE.MeshLambertMaterial({ color: 0x2f8f4a }), 20);
+  let t = 0;
+  for (let i = 0; i < 30; i++) {
+    const a = rnd() * 6.28, r = 110 + rnd() * 500;
+    o.position.set(Math.cos(a) * r, WATER_Y, Math.sin(a) * r); o.rotation.set(rnd() * 3, rnd() * 3, 0);
+    const sc = 4 + rnd() * 14; o.scale.set(sc, sc * 0.8, sc); o.updateMatrix(); rocks.setMatrixAt(i, o.matrix);
+  }
+  for (let i = 0; i < 8; i++) {
+    const a = i / 8 * 6.28 + rnd(), r = 170 + rnd() * 260, x = Math.cos(a) * r, z = Math.sin(a) * r, sc = 22 + rnd() * 20;
+    o.position.set(x, WATER_Y - 2, z); o.rotation.set(0, 0, 0); o.scale.set(sc, 5, sc); o.updateMatrix(); sand.setMatrixAt(i, o.matrix);
+    for (let k = 0; k < 2 + (i % 2) && t < 20; k++, t++) {
+      o.position.set(x + (rnd() - .5) * sc * 0.8, WATER_Y + 2, z + (rnd() - .5) * sc * 0.8); o.rotation.set(0, rnd() * 6, 0); const h = 0.8 + rnd() * 0.6; o.scale.set(h, h, h); o.updateMatrix();
+      trunks.setMatrixAt(t, o.matrix); leaves.setMatrixAt(t, o.matrix);
+    }
+  }
+  trunks.count = leaves.count = t;
+  scene.add(rocks, sand, trunks, leaves);
+}
+
+/* =========================================================
+   PART 3: Particles (hit sparks, splashes, explosions)
+   ========================================================= */
+const PN = 1600;
+const pPos = new Float32Array(PN * 3).fill(-9999), pCol = new Float32Array(PN * 3), pVel = new Float32Array(PN * 3), pBase = new Float32Array(PN * 3);
+const pLife = new Float32Array(PN), pMax = new Float32Array(PN), pGrav = new Float32Array(PN);
+let pNext = 0;
+const pGeo = new THREE.BufferGeometry();
+pGeo.setAttribute("position", new THREE.BufferAttribute(pPos, 3));
+pGeo.setAttribute("color", new THREE.BufferAttribute(pCol, 3));
+const dotTex = (() => { const c = document.createElement("canvas"); c.width = c.height = 64; const g = c.getContext("2d"); const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, "rgba(255,255,255,1)"); gr.addColorStop(0.4, "rgba(255,255,255,.6)"); gr.addColorStop(1, "rgba(255,255,255,0)"); g.fillStyle = gr; g.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(c); })();
+const points = new THREE.Points(pGeo, new THREE.PointsMaterial({ size: 1.9, map: dotTex, vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, sizeAttenuation: true, fog: false }));
+points.frustumCulled = false; scene.add(points);
+const pc = new THREE.Color();
+function spark(x, y, z, vx, vy, vz, hex, life, grav) {
+  const i = pNext; pNext = (pNext + 1) % PN;
+  pPos[i * 3] = x; pPos[i * 3 + 1] = y; pPos[i * 3 + 2] = z;
+  pVel[i * 3] = vx; pVel[i * 3 + 1] = vy; pVel[i * 3 + 2] = vz;
+  pc.setHex(hex); pBase[i * 3] = pc.r; pBase[i * 3 + 1] = pc.g; pBase[i * 3 + 2] = pc.b;
+  pLife[i] = pMax[i] = life; pGrav[i] = grav || 0;
+}
+function burst(x, y, z, n, colors, power, life, grav) {
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * 6.28, up = Math.random(), sp = power * (0.4 + Math.random() * 0.6);
+    spark(x, y, z, Math.cos(a) * sp * (1 - up * 0.5), up * sp, Math.sin(a) * sp * (1 - up * 0.5), colors[i % colors.length], life * (0.6 + Math.random() * 0.4), grav);
+  }
+}
+function updateParticles(dt) {
+  for (let i = 0; i < PN; i++) {
+    if (pLife[i] <= 0) continue;
+    pLife[i] -= dt;
+    const k = i * 3;
+    if (pLife[i] <= 0) { pPos[k + 1] = -9999; continue; }
+    pVel[k + 1] -= pGrav[i] * dt;
+    pPos[k] += pVel[k] * dt; pPos[k + 1] += pVel[k + 1] * dt; pPos[k + 2] += pVel[k + 2] * dt;
+    const f = pLife[i] / pMax[i];
+    pCol[k] = pBase[k] * f; pCol[k + 1] = pBase[k + 1] * f; pCol[k + 2] = pBase[k + 2] * f;
+  }
+  pGeo.attributes.position.needsUpdate = true; pGeo.attributes.color.needsUpdate = true;
+}
+
+/* =========================================================
+   PART 4: The fighter model (built from simple blocks)
+   ========================================================= */
+const B = THREE.BoxGeometry, S = THREE.SphereGeometry, C = THREE.CylinderGeometry;
+const mat = new THREE.MeshLambertMaterial({ vertexColors: true });
+const instanced = (geo, n, m) => { const im = new THREE.InstancedMesh(geo, m || mat, n); im.frustumCulled = false; im.count = 0; scene.add(im); return im; };
+const SKIN = 0xffcfa0;
+
+// body: shirt + left arm are white (tinted with each player's color), trousers are dark
+const bodyGeo = mergeGeometries([
+  colored(new B(1.3, 1.3, 0.8).translate(0, 1.85, 0), 0xffffff),
+  colored(new B(0.36, 1.1, 0.42).translate(-0.85, 1.8, 0), 0xffffff),
+  colored(new B(0.5, 1.2, 0.55).translate(-0.32, 0.6, 0), 0x55555f),
+  colored(new B(0.5, 1.2, 0.55).translate(0.32, 0.6, 0), 0x55555f),
+]);
+const headGeo = mergeGeometries([
+  colored(new S(0.66, 14, 10).translate(0, 3.05, 0), SKIN),
+  colored(new S(0.7, 14, 8, 0, 6.3, 0, 1.25).translate(0, 3.1, -0.06), 0x3a2a20),      // hair
+  colored(new B(0.13, 0.2, 0.1).translate(-0.24, 3.08, 0.62), 0x1a1a1a),
+  colored(new B(0.13, 0.2, 0.1).translate(0.24, 3.08, 0.62), 0x1a1a1a),
+  colored(new B(0.36, 0.3, 0.42).translate(-0.85, 1.1, 0), SKIN),                       // left hand
+]);
+// right arm + weapon. The pivot (0,0,0) is the shoulder, the arm hangs down.
+const arm = () => colored(new B(0.36, 1.15, 0.42).translate(0, -0.55, 0), SKIN);
+const armGeos = {
+  fist:   mergeGeometries([arm(), colored(new S(0.46, 10, 8).translate(0, -1.3, 0), 0xe0332b)]),
+  bat:    mergeGeometries([arm(), colored(new C(0.26, 0.13, 2.4, 8).translate(0, -2.2, 0), 0xb9824a)]),
+  pan:    mergeGeometries([arm(), colored(new C(0.1, 0.1, 1.1, 6).translate(0, -1.6, 0), 0x2a2a2e), colored(new C(0.8, 0.7, 0.2, 14).rotateX(Math.PI / 2).translate(0, -2.8, 0), 0x3a3a42)]),
+  hammer: mergeGeometries([arm(), colored(new C(0.12, 0.12, 2, 6).translate(0, -2, 0), 0x8a5a30), colored(new B(1.3, 0.8, 0.8).translate(0, -3.1, 0), 0x9aa3b5)]),
+  sword:  mergeGeometries([arm(), colored(new B(0.7, 0.16, 0.3).translate(0, -1.25, 0), 0xffc23d), colored(new B(0.2, 2.6, 0.5).translate(0, -2.6, 0), 0xe6edf5)]),
+};
+const bodyMesh = instanced(bodyGeo, MAX_FIGHTERS + 8), headMesh = instanced(headGeo, MAX_FIGHTERS + 8);
+const armMeshes = {}; for (const k in armGeos) armMeshes[k] = instanced(armGeos[k], MAX_FIGHTERS + 8);
+const shadowMesh = instanced(new THREE.CircleGeometry(1, 16).rotateX(-Math.PI / 2), MAX_FIGHTERS + 8, new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.28, depthWrite: false }));
+const shieldMesh = instanced(new S(2.3, 14, 10), 60, new THREE.MeshBasicMaterial({ color: 0x5fe8ff, transparent: true, opacity: 0.3, depthWrite: false }));
+const bombMesh = instanced(new S(0.8, 10, 8), 20, new THREE.MeshLambertMaterial({ color: 0x1c1c22 }));
+const boltMesh = instanced(new C(0.5, 0.5, 80, 6).translate(0, 40, 0), 20, new THREE.MeshBasicMaterial({ color: 0xfff7a0, fog: false }));
+const nukeMesh = new THREE.Mesh(mergeGeometries([new C(2, 2, 9, 12), new THREE.ConeGeometry(2, 4, 12).rotateX(Math.PI).translate(0, -6.5, 0)]), new THREE.MeshLambertMaterial({ color: 0x3d4a3a, emissive: 0x202a10 }));
+nukeMesh.visible = false; scene.add(nukeMesh);
+
+/* =========================================================
+   PART 5: Fighters
+   ========================================================= */
+const SHIRTS = [0xff3b6b, 0x2f6bff, 0x2fbf71, 0xffc23d, 0xb070ff, 0xff8a1f, 0x3de0ff, 0xf4f4f4, 0xe8262f, 0x7bdc5a, 0xff7ab0, 0x23c9b0];
+const players = new Map();      // id → fighter record (kept for the whole live)
+let fighters = [];              // everyone on the platform (or falling) right now
+let RAD = 14, botN = 0;
+
+function getPlayer(id, name) {
+  let p = players.get(id);
+  if (!p) {
+    p = { id, name: name || id, bot: false, member: false, state: "out", color: new THREE.Color(SHIRTS[players.size % SHIRTS.length]), kos: 0, lastActive: 0,
+          x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, yaw: 0, dmg: 0, weapon: "fist", queue: 0, cool: 0, auto: 60, swing: 0, flash: 0,
+          shieldUntil: 0, giantUntil: 0, invUntil: 0, respawnAt: 0, lastHitBy: null, lastHitAt: 0, walk: Math.random() * 6 };
+    players.set(id, p);
+  }
+  if (name) p.name = name;
+  p.lastActive = performance.now();
+  return p;
+}
+
+function spawn(p, now) {
+  if (p.state === "alive" || p.state === "falling") return;
+  if (fighters.length >= MAX_FIGHTERS) {                 // make room: a robot leaves first
+    const bot = fighters.find(f => f.bot); if (!bot) return; removeFighter(bot);
+  }
+  const a = Math.random() * 6.28, r = Math.random() * RAD * 0.6;
+  Object.assign(p, { state: "alive", x: Math.cos(a) * r, z: Math.sin(a) * r, y: 26, vx: 0, vy: 0, vz: 0, dmg: 0, queue: Math.min(p.queue, 5), swing: 0,
+                     invUntil: now + 1800, lastHitBy: null, shieldUntil: 0, giantUntil: 0 });
+  fighters.push(p);
+}
+function removeFighter(p) { const i = fighters.indexOf(p); if (i >= 0) fighters.splice(i, 1); p.state = "out"; if (p.bot) players.delete(p.id); }
+
+function join(p, now) {
+  const fresh = !p.member; p.member = true;
+  if (p.state === "out" || p.state === "dead") { p.respawnAt = 0; p.state = "out"; spawn(p, now); if (p.state === "alive") { sfx.join(); if (fresh) addFeed("join", "👊", p.name, ""); } }
+}
+
+// Robots keep the arena alive when few viewers are playing
+function manageBots(now) {
+  const real = fighters.filter(f => !f.bot).length, bots = fighters.filter(f => f.bot);
+  const want = Math.max(0, MIN_FIGHTERS - real);
+  if (bots.length < want && Math.random() < 0.02) {
+    const b = getPlayer("bot_" + (++botN), "🤖"); b.bot = true; b.member = true; b.color = new THREE.Color(0x9aa0a8); spawn(b, now);
+  } else if (bots.length > want) {
+    const b = bots[0]; burst(b.x, 2, b.z, 14, [0xffffff], 0.3, 25, 0); removeFighter(b);
+  }
+}
+
+/* =========================================================
+   PART 6: Fighting
+   ========================================================= */
+const isGiant = (f, now) => now < f.giantUntil;
+const scaleOf = (f, now) => isGiant(f, now) ? 2.1 : 1;
+
+function hit(target, dx, dz, kb, dmg, owner, now) {
+  if (target.state !== "alive" || now < target.invUntil) return;
+  if (now < target.shieldUntil) { kb *= 0.12; dmg *= 0.3; }
+  if (isGiant(target, now)) kb *= 0.45;
+  const mult = 1 + target.dmg / 50;
+  // push away from the attacker, mixed a little with "toward the edge" so fights end in the water
+  const r = Math.hypot(target.x, target.z) || 1, ox = target.x / r, oz = target.z / r;
+  let px = dx * 0.72 + ox * 0.28, pz = dz * 0.72 + oz * 0.28; const pl = Math.hypot(px, pz) || 1; px /= pl; pz /= pl;
+  target.vx += px * kb * mult; target.vz += pz * kb * mult;
+  if (target.y <= 0.05) target.vy = Math.max(target.vy, 0.16 + kb * 0.06);
+  target.dmg = Math.min(300, target.dmg + dmg); target.flash = 1;
+  if (owner) { target.lastHitBy = owner; target.lastHitAt = now; }
+  burst(target.x, 2.2 * scaleOf(target, now), target.z, 8, [0xffffff, 0xffd040], 0.35, 16, 0.01);
+}
+
+function explode(x, z, radius, kb, dmg, owner, now) {
+  for (const f of fighters) {
+    if (f === owner) continue;
+    const dx = f.x - x, dz = f.z - z, d = Math.hypot(dx, dz);
+    if (d < radius) hit(f, dx / (d || 1), dz / (d || 1), kb * (1 - d / radius * 0.5), dmg, owner, now);
+  }
+  burst(x, 1.5, z, 70, [0xff8a1f, 0xffd040, 0xff3030], 0.9, 45, 0.012); sfx.boom();
+}
+
+const bombs = [], bolts = [], strikes = [];
+let nuke = null, shake = 0;
+function throwBombs(owner, n, now) {
+  for (let i = 0; i < n; i++) {
+    const foes = fighters.filter(f => f !== owner && f.state === "alive"); if (!foes.length) return;
+    const t = foes[Math.floor(Math.random() * foes.length)];
+    bombs.push({ x0: owner.x, z0: owner.z, x1: t.x, z1: t.z, start: now + i * 450, owner });
+  }
+}
+function lightning(owner, n, now) {
+  const foes = fighters.filter(f => f !== owner && f.state === "alive").sort(() => Math.random() - 0.5).slice(0, n);
+  foes.forEach((t, i) => strikes.push({ target: t, at: now + i * 220, owner }));
+}
+function launchNuke(owner, now) { nuke = { owner, start: now }; sfx.siren(); }
+
+function knockedOut(f, now) {
+  burst(f.x, WATER_Y + 0.5, f.z, 36, [0xbfe8ff, 0xffffff, 0x6fc3ff], 0.6, 40, 0.02); sfx.splash();
+  const killer = f.lastHitBy && now - f.lastHitAt < 9000 ? f.lastHitBy : null;
+  if (killer && killer !== f) { killer.kos++; if (!f.bot || !killer.bot) addFeed("ko", "💥", killer.name, " ➜ 🌊 " + f.name); }
+  const i = fighters.indexOf(f); if (i >= 0) fighters.splice(i, 1);
+  f.weapon = "fist"; f.giantUntil = 0; f.shieldUntil = 0;
+  if (f.bot) { f.state = "out"; players.delete(f.id); return; }
+  f.state = "dead"; f.respawnAt = now + RESPAWN_SECONDS * 1000;
+}
+
+function update(dt, now) {
+  manageBots(now);
+  // people waiting to come back
+  for (const p of players.values()) {
+    if (p.state === "dead" && now >= p.respawnAt) {
+      if (now - p.lastActive < ACTIVE_SECONDS * 1000) { p.state = "out"; spawn(p, now); } else p.state = "out";   // quiet viewers stay out until they tap again
+    }
+  }
+  // the platform grows with the crowd
+  const wantR = Math.max(13, Math.min(40, 8.5 + Math.sqrt(fighters.length) * 2.7));
+  RAD += (wantR - RAD) * 0.02 * dt;
+
+  const alive = fighters.filter(f => f.state === "alive");
+  for (const f of alive) {
+    const sc = scaleOf(f, now), w = WEAPONS[f.weapon];
+    // find the nearest enemy
+    let foe = null, best = 1e9;
+    for (const o of alive) { if (o === f) continue; const d = (o.x - f.x) ** 2 + (o.z - f.z) ** 2; if (d < best) { best = d; foe = o; } }
+    const dist = Math.sqrt(best), r = Math.hypot(f.x, f.z), onGround = f.y <= 0.05 && r <= RAD;
+    const stunned = Math.hypot(f.vx, f.vz) > 0.28;
+    if (onGround && !stunned) {
+      let mx = 0, mz = 0;
+      const reach = w.range * sc;
+      if (foe) {
+        const dx = (foe.x - f.x) / (dist || 1), dz = (foe.z - f.z) / (dist || 1);
+        if (dist > reach * 0.75) { mx += dx; mz += dz; }
+        f.yaw = Math.atan2(dx, dz);
+      } else { mx += Math.cos(f.walk + now / 3000); mz += Math.sin(f.walk + now / 2300); f.yaw = Math.atan2(mx, mz); }
+      if (r > RAD * 0.72) { const k = (r - RAD * 0.72) / (RAD * 0.28) * 1.6; mx -= f.x / r * k; mz -= f.z / r * k; }   // stay away from the edge
+      const ml = Math.hypot(mx, mz);
+      if (ml > 0.01) { const sp = 0.085 * (isGiant(f, now) ? 1.25 : 1); f.x += mx / ml * sp * dt; f.z += mz / ml * sp * dt; f.walk += 0.25 * dt; }
+      // attack: likes punch fast, otherwise a slow automatic punch
+      f.cool -= dt; f.auto -= dt;
+      if (foe && dist < reach + 0.4 && f.cool <= 0 && (f.queue > 0 || f.auto <= 0)) {
+        if (f.queue > 0) f.queue--;
+        f.cool = 13; f.auto = AUTO_PUNCH_SECONDS * 60 * (f.bot ? 1.3 : 1); f.swing = 1;
+        const dx = (foe.x - f.x) / (dist || 1), dz = (foe.z - f.z) / (dist || 1);
+        hit(foe, dx, dz, w.kb * (isGiant(f, now) ? 1.9 : 1), w.dmg, f, now); sfx.punch();
+        if (isGiant(f, now) || f.weapon === "hammer") for (const o of alive) {     // big weapons hit everyone close by
+          if (o === f || o === foe) continue; const d2 = Math.hypot(o.x - f.x, o.z - f.z);
+          if (d2 < reach) hit(o, (o.x - f.x) / (d2 || 1), (o.z - f.z) / (d2 || 1), w.kb * 0.7, w.dmg * 0.6, f, now);
+        }
+      }
+    }
+    f.swing = Math.max(0, f.swing - 0.09 * dt); f.flash = Math.max(0, f.flash - 0.08 * dt);
+  }
+  // push overlapping fighters apart
+  for (let i = 0; i < alive.length; i++) for (let j = i + 1; j < alive.length; j++) {
+    const a = alive[i], b = alive[j], dx = b.x - a.x, dz = b.z - a.z, d = Math.hypot(dx, dz), min = 0.85 * (scaleOf(a, now) + scaleOf(b, now));
+    if (d < min && d > 0.001 && a.y < 3 && b.y < 3) { const p = (min - d) / 2, ux = dx / d, uz = dz / d; a.x -= ux * p; a.z -= uz * p; b.x += ux * p; b.z += uz * p; }
+  }
+  // knock-back, gravity, falling into the sea
+  for (let i = fighters.length - 1; i >= 0; i--) {
+    const f = fighters[i];
+    f.x += f.vx * dt; f.z += f.vz * dt;
+    const damp = Math.pow(f.y > 0.05 ? 0.97 : 0.9, dt); f.vx *= damp; f.vz *= damp;
+    const overGround = Math.hypot(f.x, f.z) <= RAD + 0.4;
+    f.vy -= 0.022 * dt; f.y += f.vy * dt;
+    if (overGround && f.y <= 0 && f.vy <= 0 && f.y > -1.2) { f.y = 0; f.vy = 0; }
+    if (!overGround && f.state === "alive" && f.y <= 0.05) f.state = "falling";
+    if (f.state === "falling" && overGround && f.y >= 0) f.state = "alive";
+    if (f.y < WATER_Y - 1) knockedOut(f, now);
+  }
+  // bombs
+  for (let i = bombs.length - 1; i >= 0; i--) { const b = bombs[i]; if (now - b.start >= 800) { explode(b.x1, b.z1, 8.5, 1.5, 18, b.owner, now); bombs.splice(i, 1); } }
+  // lightning
+  for (let i = strikes.length - 1; i >= 0; i--) {
+    const s = strikes[i]; if (now < s.at) continue;
+    const t = s.target; strikes.splice(i, 1);
+    if (t.state !== "alive") continue;
+    bolts.push({ x: t.x, z: t.z, until: now + 160 });
+    const r = Math.hypot(t.x, t.z) || 1; hit(t, t.x / r, t.z / r, 1.7, 30, s.owner, now);
+    burst(t.x, 2, t.z, 30, [0xfff7a0, 0xffffff], 0.6, 25, 0.01); sfx.zap(); flashScreen(0.35);
+  }
+  for (let i = bolts.length - 1; i >= 0; i--) if (now > bolts[i].until) bolts.splice(i, 1);
+  // nuke: falls for 1.6 seconds, then blows everyone except the sender off the platform
+  if (nuke && now - nuke.start >= 1600) {
+    for (const f of fighters) {
+      if (f === nuke.owner || f.state !== "alive") continue;
+      const r = Math.hypot(f.x, f.z) || 1; f.invUntil = 0; f.shieldUntil = 0; f.giantUntil = 0;
+      f.vx = f.x / r * (2.2 + Math.random()); f.vz = f.z / r * (2.2 + Math.random()); f.vy = 0.5 + Math.random() * 0.3; f.y = 0.1;
+      f.lastHitBy = nuke.owner; f.lastHitAt = now; f.flash = 1;
+    }
+    burst(0, 2, 0, 260, [0xffffff, 0xffd040, 0xff8a1f, 0xff3030], 2.2, 80, 0.01);
+    flashScreen(1); shake = 40; sfx.nuke(); nuke = null;
+  }
+}
+
+/* =========================================================
+   PART 7: Drawing
+   ========================================================= */
+const dummy = new THREE.Object3D(); dummy.rotation.order = "YXZ";
+const white = new THREE.Color(0xffffff), tint = new THREE.Color();
+function draw(dt, now) {
+  arena.scale.set(RAD, 1, RAD);
+  for (let i = 0; i < 5; i++) { const k = ((now / 6000 + i / 5) % 1); dummy.position.set(0, WATER_Y + 0.1, 0); dummy.rotation.set(0, 0, 0); const s = RAD * (1.05 + k * 1.6); dummy.scale.set(s, 1, s); dummy.updateMatrix(); foam.setMatrixAt(i, dummy.matrix); }
+  foam.instanceMatrix.needsUpdate = true;
+
+  const counts = {}; for (const k in armMeshes) counts[k] = 0;
+  let n = 0, shields = 0;
+  for (const f of fighters) {
+    const sc = scaleOf(f, now), moving = f.state === "alive" && f.y <= 0.05;
+    const bob = moving ? Math.abs(Math.sin(f.walk)) * 0.22 : 0;
+    const lean = Math.min(0.5, Math.hypot(f.vx, f.vz) * 0.9);            // leans back when knocked
+    const blink = now < f.invUntil && Math.floor(now / 90) % 2;
+    const s = blink ? 0.001 : sc;
+    dummy.position.set(f.x, f.y + bob * sc, f.z); dummy.rotation.set(f.state === "falling" ? now / 120 : -lean, f.yaw, 0); dummy.scale.set(s, s, s); dummy.updateMatrix();
+    bodyMesh.setMatrixAt(n, dummy.matrix); headMesh.setMatrixAt(n, dummy.matrix);
+    tint.copy(f.color).lerp(white, f.flash * 0.8); bodyMesh.setColorAt(n, tint);
+    // right arm with the weapon: rests forward, swings from above the head down to the front
+    const pitch = f.swing > 0 ? -2.9 + (1 - f.swing) * 1.7 : -0.55 + Math.sin(f.walk) * 0.25;
+    dummy.position.set(f.x + Math.cos(f.yaw) * 0.85 * sc, f.y + (2.35 + bob) * sc, f.z - Math.sin(f.yaw) * 0.85 * sc);
+    dummy.rotation.set(pitch, f.yaw, 0); dummy.updateMatrix();
+    armMeshes[f.weapon].setMatrixAt(counts[f.weapon]++, dummy.matrix);
+    if (f.y > -1 && Math.hypot(f.x, f.z) < RAD) { dummy.position.set(f.x, 0.05, f.z); dummy.rotation.set(0, 0, 0); const ss = sc * 1.1 * Math.max(0.3, 1 - f.y / 30); dummy.scale.set(ss, 1, ss); }
+    else { dummy.position.set(0, -999, 0); dummy.scale.set(1, 1, 1); }
+    dummy.updateMatrix(); shadowMesh.setMatrixAt(n, dummy.matrix);
+    if (now < f.shieldUntil && shields < 60) { dummy.position.set(f.x, f.y + 1.8 * sc, f.z); dummy.rotation.set(0, 0, 0); const k = sc * (1 + Math.sin(now / 150) * 0.05); dummy.scale.set(k, k, k); dummy.updateMatrix(); shieldMesh.setMatrixAt(shields++, dummy.matrix); }
+    f.sx = f.x; f.sy = f.y + 4.1 * sc; f.sz = f.z;
+    n++;
+  }
+  bodyMesh.count = headMesh.count = shadowMesh.count = n;
+  bodyMesh.instanceMatrix.needsUpdate = headMesh.instanceMatrix.needsUpdate = shadowMesh.instanceMatrix.needsUpdate = true;
+  if (bodyMesh.instanceColor) bodyMesh.instanceColor.needsUpdate = true;
+  for (const k in armMeshes) { armMeshes[k].count = counts[k]; armMeshes[k].instanceMatrix.needsUpdate = true; }
+  shieldMesh.count = shields; shieldMesh.instanceMatrix.needsUpdate = true;
+
+  let nb = 0;
+  for (const b of bombs) {
+    const t = (now - b.start) / 800; if (t < 0 || nb >= 20) continue;
+    const x = b.x0 + (b.x1 - b.x0) * t, z = b.z0 + (b.z1 - b.z0) * t, y = 2 + Math.sin(Math.PI * t) * 9;
+    dummy.position.set(x, y, z); dummy.rotation.set(0, 0, 0); dummy.scale.set(1, 1, 1); dummy.updateMatrix(); bombMesh.setMatrixAt(nb++, dummy.matrix);
+    spark(x, y + 0.8, z, 0, 0.05, 0, 0xffa040, 10, 0);
+  }
+  bombMesh.count = nb; bombMesh.instanceMatrix.needsUpdate = true;
+  let nl = 0;
+  for (const b of bolts) { if (nl >= 20) break; dummy.position.set(b.x, 0, b.z); dummy.rotation.set(0, 0, 0); dummy.scale.set(1, 1, 1); dummy.updateMatrix(); boltMesh.setMatrixAt(nl++, dummy.matrix); }
+  boltMesh.count = nl; boltMesh.instanceMatrix.needsUpdate = true;
+  nukeMesh.visible = !!nuke;
+  if (nuke) { const t = (now - nuke.start) / 1600; nukeMesh.position.set(0, 130 * (1 - t) + 6, 0); spark((Math.random() - .5) * 2, nukeMesh.position.y + 6, (Math.random() - .5) * 2, 0, 0.2, 0, 0xffa040, 20, 0); }
+}
+
+// camera: slow circle around the platform, far enough to see all of it
+const camPos = new THREE.Vector3(0, 120, 150);
+function updateCamera(dt, now) {
+  const hHalf = Math.atan(Math.tan(21 * Math.PI / 180) * camera.aspect);
+  const D = Math.max(RAD * 1.06 / Math.tan(hHalf), RAD * 3.2);
+  const a = now / 26000;
+  camPos.set(Math.sin(a) * D * 0.7, D * 0.72, Math.cos(a) * D * 0.7);
+  camera.position.copy(camPos);
+  if (shake > 0) { camera.position.x += (Math.random() - .5) * shake * 0.12; camera.position.y += (Math.random() - .5) * shake * 0.12; shake = Math.max(0, shake - dt); }
+  camera.lookAt(0, RAD * 0.3, 0);        // look a little above the platform so it sits under the banner
+}
+
+/* =========================================================
+   PART 8: Screen: names, top 3, pop-ups, feed
+   ========================================================= */
+const $ = id => document.getElementById(id);
+const el = (tag, cls, text) => Object.assign(document.createElement(tag), { className: cls || "", textContent: text || "" });
+const shortName = n => n.length > 12 ? n.slice(0, 11) + "…" : n;
+
+const namesCanvas = $("names"), nctx = namesCanvas.getContext("2d");
+function sizeNames() { const dpr = Math.min(window.devicePixelRatio || 1, 2); namesCanvas.width = window.innerWidth * dpr; namesCanvas.height = window.innerHeight * dpr; nctx.setTransform(dpr, 0, 0, dpr, 0, 0); }
+sizeNames(); window.addEventListener("resize", sizeNames);
+const v3 = new THREE.Vector3();
+let king = null;
+function drawNames(now) {
+  const W = window.innerWidth, H = window.innerHeight;
+  nctx.clearRect(0, 0, W, H);
+  nctx.textAlign = "center"; nctx.textBaseline = "bottom"; nctx.lineJoin = "round";
+  const px = fighters.length > 60 ? 10 : fighters.length > 25 ? 11.5 : 13;
+  nctx.font = "800 " + px + "px system-ui, -apple-system, 'Segoe UI', Tahoma, sans-serif"; nctx.lineWidth = 3; nctx.strokeStyle = "rgba(0,0,0,.85)";
+  const placed = [];
+  const order = [...fighters].sort((a, b) => (b === king) - (a === king) || (b.weapon !== "fist") - (a.weapon !== "fist") || b.kos - a.kos);
+  for (const f of order) {
+    if (f.sx === undefined || f.state !== "alive" || f.bot) continue;
+    v3.set(f.sx, f.sy, f.sz).project(camera); if (v3.z > 1) continue;
+    const x = (v3.x + 1) / 2 * W, y = (1 - v3.y) / 2 * H;
+    // in a crowd, a name that would cover another name is skipped for this frame
+    const hw = (f.name.length > 12 ? 12 : f.name.length) * px * 0.3 + 8;
+    if (placed.some(q => Math.abs(q.x - x) < q.hw + hw && Math.abs(q.y - y) < px)) continue;
+    placed.push({ x, y, hw });
+    const hurt = Math.min(1, f.dmg / 120);                         // name turns from white to red as damage grows
+    nctx.fillStyle = "rgb(255," + Math.round(255 - hurt * 190) + "," + Math.round(255 - hurt * 215) + ")";
+    const label = (f === king ? "👑" : "") + shortName(f.name) + (f.weapon !== "fist" ? WEAPONS[f.weapon].icon : "");
+    nctx.strokeText(label, x, y); nctx.fillText(label, x, y);
+  }
+}
+
+function showBoard() {
+  const top = [...players.values()].filter(p => !p.bot && p.kos > 0).sort((a, b) => b.kos - a.kos).slice(0, 3);
+  king = top[0] || null;
+  const box = $("board"); box.innerHTML = "";
+  top.forEach((p, i) => box.appendChild(el("div", "", ["👑", "🥈", "🥉"][i] + " " + shortName(p.name) + "  💥" + p.kos)));
+  $("count").textContent = "👊 " + fighters.filter(f => !f.bot).length;
+}
+setInterval(showBoard, 500);
+
+let giftPics = {};
+try { giftPics = JSON.parse(localStorage.getItem("gift_pics") || "{}"); } catch (e) {}
+function giftIcon(name, url) {
+  const span = el("span", "gicon"); const src = url || giftPics[(name || "").toLowerCase()];
+  if (url && name) { giftPics[name.toLowerCase()] = url; try { localStorage.setItem("gift_pics", JSON.stringify(giftPics)); } catch (e) {} }
+  if (src) { const img = document.createElement("img"); img.src = src; img.onerror = () => span.textContent = "🎁"; span.appendChild(img); } else span.textContent = "🎁";
+  return span;
+}
+function bigAlert(parts) {
+  const a = $("big-alert"); a.innerHTML = "";
+  for (const p of parts) a.appendChild(typeof p === "string" ? document.createTextNode(p) : p);
+  a.classList.add("show"); clearTimeout(window._alertT); window._alertT = setTimeout(() => a.classList.remove("show"), 2300);
+}
+function flashScreen(strength) { const f = $("flash"); f.style.transition = "none"; f.style.opacity = String(strength); void f.offsetWidth; f.style.transition = "opacity .8s"; f.style.opacity = "0"; }
+
+const FEED_MAX = 3, FEED_SECONDS = 6;
+function addFeed(kind, icon, name, text) {
+  const feed = $("feed"), line = el("div", "feed-line " + kind); line.dir = "auto";
+  line.appendChild(document.createTextNode(icon)); line.appendChild(el("span", "n", name));
+  if (text) line.appendChild(document.createTextNode(text));
+  feed.appendChild(line);
+  while (feed.children.length > FEED_MAX) feed.firstChild.remove();
+  setTimeout(() => line.classList.add("gone"), FEED_SECONDS * 1000); setTimeout(() => line.remove(), FEED_SECONDS * 1000 + 700);
+}
+
+/* =========================================================
+   PART 9: Viewers → game
+   ========================================================= */
+function isJoin(text) { return /^\s*[1١]\s*$/.test(text || ""); }
+
+function onFollow(id, name) { join(getPlayer(id, name), performance.now()); }
+function onChat(id, name, text) {
+  const p = getPlayer(id, name), now = performance.now();
+  if (isJoin(text)) { join(p, now); return; }
+  if (p.member && p.state === "out") spawn(p, now);
+  if (text && text.trim()) addFeed("chat", "💬", name, text);
+}
+function onLikes(id, name, amount) {
+  const p = getPlayer(id, name);
+  if (!p.member) return;
+  if (p.state === "out") spawn(p, performance.now());     // a quiet fighter comes back when they tap again
+  p.queue = Math.min(40, p.queue + amount);
+}
+function onGift(id, name, giftName, coins, picUrl) {
+  const p = getPlayer(id, name), now = performance.now();
+  join(p, now);
+  if (p.state === "dead") { p.state = "out"; spawn(p, now); }
+  if (p.state !== "alive" && p.state !== "falling") return;
+  p.dmg = 0;                                              // every gift also heals
+  let icon;
+  if (coins >= 1000) { launchNuke(p, now); p.shieldUntil = now + 8000; icon = "☢️💥"; }
+  else if (coins >= 500) { lightning(p, 8, now); p.weapon = "sword"; icon = "⚡⚡⚡"; }
+  else if (coins >= 100) { p.giantUntil = now + 30000; p.weapon = "hammer"; icon = "🦍🔨"; burst(p.x, 3, p.z, 50, [0xffd040, 0xffffff], 0.6, 40, 0.01); }
+  else if (coins >= 30) { throwBombs(p, 3, now); p.shieldUntil = now + 15000; icon = "💣🛡️"; }
+  else if (coins >= 5) { p.weapon = Math.random() < 0.5 ? "hammer" : "sword"; icon = WEAPONS[p.weapon].icon; }
+  else { p.weapon = Math.random() < 0.5 ? "bat" : "pan"; icon = WEAPONS[p.weapon].icon; }
+  if (p.state === "falling" || Math.hypot(p.x, p.z) > RAD * 0.8) { p.vx = p.vz = 0; }   // a gift also saves you from sliding out
+  bigAlert([el("span", "who", name), giftIcon(giftName, picUrl), "➜", icon]); sfx.gift();
+}
+
+function idOf(u) { return (u && (u.uniqueId || u.nickname)) || "?"; }
+function nameOf(u) { return (u && (u.nickname || u.uniqueId)) || "?"; }
+function picOf(d) { const img = d.giftImage || d.image || d.icon || {}; return (img.url && img.url[0]) || (img.urlList && img.urlList[0]) || ""; }
+function handleEvent(type, data) {
+  if (!type || !data) return;
+  const u = data.user;
+  if (type.includes("RoomUserSeqMessage")) { const n = Number(data.viewerCount || data.totalUser || 0); if (n) $("viewers").textContent = "👁 " + n; }
+  else if (type.includes("LikeMessage")) onLikes(idOf(u), nameOf(u), Number(data.likeCount) || 1);
+  else if (type.includes("ChatMessage")) onChat(idOf(u), nameOf(u), data.comment);
+  else if (type.includes("SocialMessage")) {
+    const action = String(data.action || "") + String((data.common && data.common.displayText && data.common.displayText.displayType) || "");
+    if (action.toLowerCase().includes("follow")) onFollow(idOf(u), nameOf(u));
+  } else if (type.includes("GiftMessage")) {
+    const d = data.giftDetails || {};
+    if (Number(d.giftType) === 1 && !Number(data.repeatEnd)) return;   // wait until a combo ends
+    onGift(idOf(u), nameOf(u), d.giftName || d.name || "", (Number(d.diamondCount) || 1) * (Number(data.repeatCount) || 1), picOf(d));
+  }
+}
+function handleMessage(raw) {
+  let msg; try { msg = JSON.parse(raw); } catch (e) { return; }
+  for (const m of (Array.isArray(msg.messages) ? msg.messages : [msg])) { try { handleEvent(m.type, m.data); } catch (e) { console.warn(e); } }
+}
+
+/* =========================================================
+   PART 10: Connection that fixes itself
+   ========================================================= */
+function load(k) { try { return localStorage.getItem(k) || ""; } catch (e) { return ""; } }
+function save(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+function setStatus(text, kind) { $("status").className = kind || ""; $("status-text").textContent = text; }
+let socket = null, wantConnected = false, reconnectTimer = null, retryDelay = 2000, lastMessageAt = 0, liveUser = "", liveKey = "";
+function openSocket() {
+  clearTimeout(reconnectTimer);
+  if (socket) { socket.onclose = null; try { socket.close(); } catch (e) {} socket = null; }
+  setStatus("…");
+  const url = "wss://ws.eulerstream.com?uniqueId=" + encodeURIComponent(liveUser) + (liveKey ? "&apiKey=" + encodeURIComponent(liveKey) : "");
+  try { socket = new WebSocket(url); } catch (e) { scheduleReconnect(5000); return; }
+  socket.onopen = () => { setStatus("", "on"); retryDelay = 2000; lastMessageAt = Date.now(); };
+  socket.onmessage = (e) => { lastMessageAt = Date.now(); if (typeof e.data === "string") handleMessage(e.data); };
+  socket.onclose = (e) => {
+    socket = null; if (!wantConnected) return;
+    if (e.code === 4401) { setStatus("Wrong API key", "err"); return; }
+    if (e.code === 4404) { setStatus("Not live yet – retrying…", "err"); scheduleReconnect(10000); return; }
+    if (e.code === 4429) { setStatus("Too many connections – waiting…", "err"); scheduleReconnect(30000); return; }
+    setStatus("↻", "err"); scheduleReconnect(retryDelay); retryDelay = Math.min(retryDelay * 2, 15000);
+  };
+  socket.onerror = () => {};
+}
+function scheduleReconnect(ms) { clearTimeout(reconnectTimer); reconnectTimer = setTimeout(() => { if (wantConnected && !document.hidden) openSocket(); }, ms); }
+document.addEventListener("visibilitychange", () => { if (!document.hidden && wantConnected && (!socket || socket.readyState > 1)) { retryDelay = 2000; openSocket(); } });
+setInterval(() => { if (wantConnected && !document.hidden && socket && socket.readyState === 1 && Date.now() - lastMessageAt > 45000) openSocket(); }, 5000);
+let wakeLock = null;
+async function keepAwake() { try { if ("wakeLock" in navigator && !document.hidden && (!wakeLock || wakeLock.released)) wakeLock = await navigator.wakeLock.request("screen"); } catch (e) {} }
+document.addEventListener("visibilitychange", keepAwake);
+
+/* =========================================================
+   PART 11: Start, test mode, menu
+   ========================================================= */
+const usernameInput = $("username"), apikeyInput = $("apikey");
+usernameInput.value = load("tt_username"); apikeyInput.value = load("tt_apikey");
+let started = false, testing = false, autoLikes = true;
+function boot() { initAudio(); keepAwake(); $("setup").style.display = "none"; if (!started) { started = true; requestAnimationFrame(loop); } }
+
+let last = performance.now(), frameCount = 0, frameClock = performance.now(), slow = 0;
+function loop(now) {
+  const dt = Math.min(3, (now - last) / 16.67); last = now;
+  if (testing && autoLikes) for (const f of fighters) if (!f.bot && Math.random() < 0.03 * dt) f.queue = Math.min(40, f.queue + 1 + Math.floor(Math.random() * 6)), f.lastActive = now;
+  update(dt, now); draw(dt, now); updateParticles(dt); updateCamera(dt, now);
+  renderer.render(scene, camera); drawNames(now);
+  if (++frameCount >= 90) {       // if the phone struggles, lower the sharpness a little
+    const fps = frameCount * 1000 / (now - frameClock); frameCount = 0; frameClock = now;
+    if (fps < 34 && pixelRatio > 1 && ++slow >= 2) { pixelRatio = Math.max(1, pixelRatio - 0.25); renderer.setPixelRatio(pixelRatio); slow = 0; }
+  }
+  requestAnimationFrame(loop);
+}
+
+$("connect-btn").onclick = () => {
+  const username = usernameInput.value.trim().replace(/^@/, ""), apiKey = apikeyInput.value.trim();
+  if (!username) { usernameInput.focus(); return; }
+  save("tt_username", username); save("tt_apikey", apiKey);
+  liveUser = username; liveKey = apiKey; wantConnected = true; boot(); openSocket();
+};
+$("test-btn").onclick = () => { testing = true; document.body.classList.add("testing"); setStatus("🧪", "on"); $("viewers").textContent = "👁 120"; boot(); };
+
+const names = ["Sara", "Omar", "Noura", "Faisal", "Lama", "Khalid", "Reem", "Turki", "Hessa", "Majed", "Dana", "Yousef", "Abdullah", "Shahad", "Nasser"];
+let fakeN = 0;
+const fakeUser = () => { const n = names[fakeN % names.length] + (fakeN >= names.length ? " " + (Math.floor(fakeN / names.length) + 1) : ""); fakeN++; return { uniqueId: "fake_" + fakeN, nickname: n }; };
+const someone = () => { const real = fighters.filter(f => !f.bot); if (!real.length) return fakeUser(); const f = real[Math.floor(Math.random() * real.length)]; return { uniqueId: f.id, nickname: f.name }; };
+const fakeGift = (coins, name) => handleEvent("WebcastGiftMessage", { user: someone(), giftDetails: { giftName: name, diamondCount: coins, giftType: 2 }, repeatCount: 1 });
+const fakeFollow = () => handleEvent("WebcastSocialMessage", { user: fakeUser(), action: "follow" });
+$("t-join1").onclick = fakeFollow;
+$("t-join10").onclick = () => { for (let i = 0; i < 10; i++) fakeFollow(); };
+$("t-likes").onclick = (e) => { autoLikes = !autoLikes; e.target.classList.toggle("on", autoLikes); };
+$("t-g1").onclick = () => fakeGift(Math.random() < 0.5 ? 1 : 5, "Rose");
+$("t-g2").onclick = () => fakeGift(30, "Doughnut");
+$("t-g3").onclick = () => fakeGift(100, "Hand Hearts");
+$("t-g4").onclick = () => fakeGift(500, "Money Gun");
+$("t-g5").onclick = () => fakeGift(1000, "Galaxy");
+
+const menu = $("menu");
+$("menu-btn").onclick = () => menu.style.display = "flex";
+$("close-menu-btn").onclick = () => menu.style.display = "none";
+$("sound-btn").onclick = (e) => { soundOn = !soundOn; e.target.textContent = soundOn ? "🔊 Sound: on" : "🔇 Sound: off"; initAudio(); };
+$("toggle-test-btn").onclick = () => { document.body.classList.toggle("testing"); menu.style.display = "none"; };
+$("disconnect-btn").onclick = () => { wantConnected = false; clearTimeout(reconnectTimer); if (socket) { socket.onclose = null; socket.close(); socket = null; } menu.style.display = "none"; $("setup").style.display = "block"; };
+const fsBtn = $("fullscreen-btn");
+if (window.navigator.standalone || matchMedia("(display-mode: fullscreen)").matches || matchMedia("(display-mode: standalone)").matches) fsBtn.style.display = "none";
+fsBtn.onclick = () => {
+  const root = document.documentElement, req = root.requestFullscreen || root.webkitRequestFullscreen;
+  const tip = () => { fsBtn.textContent = "iPhone: Share ⬆️ → Add to Home Screen, then open from the new icon"; fsBtn.style.fontSize = "13px"; };
+  if (req && document.fullscreenEnabled !== false) { try { const r = req.call(root); if (r && r.catch) r.catch(tip); } catch (e) { tip(); } menu.style.display = "none"; } else tip();
+};
+window.__game = { handleEvent, players, get fighters() { return fighters; }, get rad() { return RAD; } };
+</script>
+</body>
+</html>
