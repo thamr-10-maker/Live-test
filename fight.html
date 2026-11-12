@@ -91,7 +91,7 @@
   <input id="apikey" placeholder="paste your key here" autocomplete="off" autocapitalize="off">
   <button class="btn btn-main" id="connect-btn">Start game on LIVE</button>
   <button class="btn btn-soft" id="test-btn">Try test mode</button>
-  <p style="margin-top:14px;font-size:12px;text-align:center">Arena Brawl · Version 1</p>
+  <p style="margin-top:14px;font-size:12px;text-align:center">Arena Brawl · Version 2</p>
 </div></div>
 
 <!-- ================= HUD ================= -->
@@ -137,8 +137,8 @@ import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
    ========================================================= */
 const MAX_FIGHTERS = 120;       // most fighters on the platform at once
 const MIN_FIGHTERS = 4;         // robots fill the arena up to this number, so nobody waits alone
-const ACTIVE_SECONDS = 150;     // a knocked-out viewer comes back only if they did something in this time
-const RESPAWN_SECONDS = 2.5;
+const ACTIVE_SECONDS = 900;     // a viewer silent for this long (15 min) has probably left, and stops coming back
+const RESPAWN_SECONDS = 10;      // knocked into the water → back automatically after this
 const AUTO_PUNCH_SECONDS = 2.2; // everyone punches slowly by themselves; likes punch much faster
 const TOP_GIFT_WAIT = 0;        // (reserved)
 
