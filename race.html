@@ -44,6 +44,7 @@
   #phase.hurry #phase-big { color: var(--pink); animation: pulse .6s infinite; }
   @keyframes pulse { 50% { transform: scale(1.12); } }
 
+  #start-btn { display: none; pointer-events: auto; margin: 6px auto 0; padding: 8px 26px; font-size: 18px; font-weight: 900; border: 0; border-radius: 16px; background: var(--green); color: #06301a; box-shadow: 0 6px 20px rgba(61,255,138,.45); }
   .banner { margin: 6px auto 0; width: fit-content; max-width: 96%; background: linear-gradient(135deg, #ff3b6b, #ff7a3d); border-radius: 16px; padding: 5px 16px; text-align: center; font-weight: 800; line-height: 1.3; box-shadow: 0 6px 24px rgba(255,59,107,.45); }
   .banner .ar { font-size: 18px; }
   .banner .en { font-size: 12px; opacity: .94; }
@@ -141,7 +142,7 @@
   <input id="apikey" placeholder="paste your key here" autocomplete="off" autocapitalize="off">
   <button class="btn btn-main" id="connect-btn">Start game on LIVE</button>
   <button class="btn btn-soft" id="test-btn">Try test mode</button>
-  <p style="margin-top:14px;font-size:12px;text-align:center">Version 4 · lobby 5:00</p>
+  <p style="margin-top:14px;font-size:12px;text-align:center">Version 5 · you start the 1:00 countdown</p>
 </div></div>
 <div id="loading">Loading cars… 🏎️</div>
 
@@ -152,6 +153,7 @@
     <button id="menu-btn">☰</button>
   </div>
   <div id="phase"><div id="phase-big"></div><div id="phase-small"></div></div>
+  <button id="start-btn">▶️ 1:00</button>
   <div id="lobby-ui">
     <div class="banner"><div class="ar" dir="rtl">اكتب 1 وخذ سيارتك 🏎️</div><div class="en">Type 1 to get your race car</div>
       <div class="rule"><div dir="rtl">الهدية تطوّر سيارتك وتبقى معك طول اللايف ✨</div>Gifts upgrade your car · it stays yours all live</div></div>
@@ -210,7 +212,7 @@ import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 /* =========================================================
    SETTINGS – change these to tune the game
    ========================================================= */
-const LOBBY_SECONDS = 300;     // time to join + upgrade before each race (5 minutes)
+const LOBBY_SECONDS = 60;      // countdown after you press the start button (the lobby waits until then)
 const COUNTDOWN_SECONDS = 5;   // red start lights
 const RACE_SECONDS = 150;      // race length (2:30). Furthest car when time is up wins.
 const FINAL_SECONDS = 30;      // last part of the race: every like counts double
@@ -619,12 +621,14 @@ function layoutGrid() {
 /* =========================================================
    PART 6: Game phases  (lobby → countdown → race → podium → lobby …)
    ========================================================= */
+let lobbyWaiting = true;
 let phase = "lobby", phaseEnds = 0, raceStart = 0, lastRaceStart = 0, lastBeep = -1, winner = null, finalOn = false;
 const $ = id => document.getElementById(id);
 
 function startLobby() {
   phase = "lobby";
-  phaseEnds = performance.now() + LOBBY_SECONDS * 1000;
+  phaseEnds = Infinity; lobbyWaiting = true;          // wait here until the streamer presses ▶️
+  $("start-btn").style.display = "block";
   // everyone who was active in the last race gets their car back automatically
   const back = [...cars].filter(c => c.p.lastActive >= lastRaceStart && lastRaceStart > 0).map(c => c.p);
   cars = []; byId.clear();
@@ -638,7 +642,8 @@ function startLobby() {
 }
 
 function startCountdown() {
-  phase = "countdown"; lastBeep = -1; gantry.visible = true;
+  phase = "countdown"; lastBeep = -1; gantry.visible = true; lobbyWaiting = false;
+  $("start-btn").style.display = "none";
   phaseEnds = performance.now() + COUNTDOWN_SECONDS * 1000;
   $("lobby-ui").style.display = "none";
 }
@@ -686,8 +691,8 @@ function updatePhase(now) {
   const mmss = Math.floor(left / 60) + ":" + String(left % 60).padStart(2, "0");
   const big = $("phase-big"), small = $("phase-small"), box = $("phase");
   if (phase === "lobby") {
-    big.textContent = "⏳ " + mmss; small.textContent = "🏎️ " + cars.length;
-    box.classList.toggle("hurry", left <= 10);
+    if (lobbyWaiting) { big.textContent = "🏎️ " + cars.length; small.textContent = ""; box.classList.remove("hurry"); }
+    else { big.textContent = "⏳ " + mmss; small.textContent = "🏎️ " + cars.length; box.classList.toggle("hurry", left <= 10); }
     if (now >= phaseEnds) startCountdown();
   } else if (phase === "countdown") {
     const passed = COUNTDOWN_SECONDS - (phaseEnds - now) / 1000, n = Math.min(5, Math.floor(passed) + 1);
@@ -1262,6 +1267,11 @@ $("t-rocket").onclick = () => fakeGift(phase === "race" && ranked.length > 4 ? c
 $("t-storm").onclick = () => fakeGift(randomCarUser(), { gift: "Galaxy", coins: 1000 });
 $("t-likes").onclick = (e) => { autoLikes = !autoLikes; e.target.classList.toggle("on", autoLikes); };
 $("t-skip").onclick = skipPhase;
+$("start-btn").onclick = () => {      // start the 1-minute countdown
+  if (phase !== "lobby" || !lobbyWaiting) return;
+  lobbyWaiting = false; phaseEnds = performance.now() + LOBBY_SECONDS * 1000;
+  $("start-btn").style.display = "none"; sfx.go();
+};
 
 document.querySelectorAll("[data-cam]").forEach(b => b.onclick = () => setCam(b.dataset.cam));
 const menu = $("menu");
